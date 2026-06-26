@@ -1,0 +1,12 @@
+[package]
+name = "bindgen_greeter"
+edition = "2021"
+
+[[bin]]
+name = "bindgen_greeter"
+path = "src/main.rs"
+
+[dependencies]
+# Pinned to wasm-bindgen main (emscripten __export/__force attribute support,
+# wasm-bindgen/wasm-bindgen#5253); must match the wasm-bindgen-cli rev exactly.
+wasm-bindgen = { git = "https://github.com/wasm-bindgen/wasm-bindgen", rev = "297640cd3fcaa851b22201eba0eb84c78d5190f4" }
