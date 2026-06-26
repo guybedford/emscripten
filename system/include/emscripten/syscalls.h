@@ -116,6 +116,9 @@ int __syscall_sendmsg(int sockfd, intptr_t msg, int flags, int unused1, int unus
 int __syscall_recvfrom(int sockfd, intptr_t buf, size_t len, int flags, intptr_t addr, intptr_t alen);
 int __syscall_recvmsg(int sockfd, intptr_t msg, int flags, int unused1, int unused2, int unused3);
 int __syscall_shutdown(int sockfd, int how, int unused1, int unused2, int unused3, int unused4);
+int __syscall_epoll_create1(int flags);
+int __syscall_epoll_ctl(int epfd, int op, int fd, intptr_t ev);
+int __syscall_epoll_pwait(int epfd, intptr_t ev, int maxevents, int timeout, intptr_t sigmask, size_t sigsetsize);
 
 #ifdef __cplusplus
 }

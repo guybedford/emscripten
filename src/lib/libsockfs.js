@@ -8,7 +8,7 @@ addToLibrary({
   $SOCKFS__postset: () => {
     addAtInit('SOCKFS.root = FS.mount(SOCKFS, {}, null);');
   },
-  $SOCKFS__deps: ['$FS',
+  $SOCKFS__deps: ['$FS', '$notifyNodeListeners',
 #if NODERAWSOCKETS
     '$nodeSockOps',
 #endif
@@ -23,6 +23,18 @@ addToLibrary({
     },
     emit(event, param) {
       SOCKFS.callbacks[event]?.(param);
+      // Bridge socket readiness into the inode wait-queue (poll/epoll). The
+      // 'error' event carries [fd, ...]; the rest carry the fd directly.
+      var fd = event === 'error' ? param[0] : param;
+      var flags = {
+        'message':    {{{ cDefs.POLLRDNORM }}} | {{{ cDefs.POLLIN }}},
+        'open':       {{{ cDefs.POLLOUT }}},
+        'connection': {{{ cDefs.POLLRDNORM }}} | {{{ cDefs.POLLIN }}},
+        'close':      {{{ cDefs.POLLIN }}} | {{{ cDefs.POLLHUP }}},
+        'error':      {{{ cDefs.POLLERR }}},
+      }[event];
+      // 'listen' has no readiness mapping; skip it.
+      if (flags) notifyNodeListeners(FS.getStream(fd)?.node, flags);
     },
     mount(mount) {
 #if expectToReceiveOnModule('websocket')
@@ -138,6 +150,8 @@ addToLibrary({
       },
       close(stream) {
         var sock = stream.node.sock;
+        // The fd is going away: wake waiters with POLLNVAL so they don't hang.
+        notifyNodeListeners(stream.node, {{{ cDefs.POLLNVAL }}});
         sock.sock_ops.close(sock);
       }
     },
@@ -555,6 +569,8 @@ addToLibrary({
             // push to queue for accept to pick up
             sock.pending.push(newsock);
             SOCKFS.emit('connection', newsock.stream.fd);
+            // A queued client makes the listening socket readable (POLLIN).
+            notifyNodeListeners(sock.stream.node, {{{ cDefs.POLLRDNORM }}} | {{{ cDefs.POLLIN }}});
           } else {
             // create a peer on the listen socket so calling sendto
             // with the listen socket and an address will resolve
