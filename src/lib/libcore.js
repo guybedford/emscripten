@@ -859,6 +859,18 @@ addToLibrary({
   $writeSockaddr__deps: ['$inetPton4', '$inetPton6', '$zeroMemory', 'htons'],
   $writeSockaddr: (sa, family, addr, port, addrlen) => {
     switch (family) {
+#if NODERAWSOCKETS
+      case {{{ cDefs.AF_UNIX }}}: {
+        // Only unnamed AF_UNIX addresses exist (a socketpair() end never has
+        // a name): the address is the family alone.
+        zeroMemory(sa, {{{ C_STRUCTS.sockaddr_un.sun_path }}});
+        {{{ makeSetValue('sa', C_STRUCTS.sockaddr_un.sun_family, 'family', 'i16') }}};
+        if (addrlen) {
+          {{{ makeSetValue('addrlen', 0, C_STRUCTS.sockaddr_un.sun_path, 'i32') }}};
+        }
+        break;
+      }
+#endif
       case {{{ cDefs.AF_INET }}}:
         addr = inetPton4(addr);
         zeroMemory(sa, {{{ C_STRUCTS.sockaddr_in.__size__ }}});

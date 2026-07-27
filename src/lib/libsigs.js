@@ -283,6 +283,7 @@ sigs = {
   __syscall_setsockopt__sig: 'iiiipii',
   __syscall_shutdown__sig: 'iiiiiii',
   __syscall_socket__sig: 'iiiiiii',
+  __syscall_socketpair__sig: 'iiiipii',
   __syscall_stat64__sig: 'ipp',
   __syscall_statfs64__sig: 'ippp',
   __syscall_symlinkat__sig: 'ipip',

@@ -59,11 +59,12 @@ addToLibrary({
 
       return FS.createNode(null, '/', {{{ cDefs.S_IFDIR | 0o777 }}}, 0);
     },
-    createSocket(family, type, protocol) {
+    createSocket(family, type, protocol, pair) {
       if (family != {{{ cDefs.AF_INET }}}
 #if NODERAWSOCKETS
           // The node:net backend supports IPv6; other backends are IPv4 only.
           && family != {{{ cDefs.AF_INET6 }}}
+          && family != {{{ cDefs.AF_UNIX }}}
 #endif
          ) {
         throw new FS.ErrnoError({{{ cDefs.EAFNOSUPPORT }}});
@@ -73,8 +74,28 @@ addToLibrary({
       if (type != {{{ cDefs.SOCK_STREAM }}} && type != {{{ cDefs.SOCK_DGRAM }}}) {
         throw new FS.ErrnoError({{{ cDefs.EINVAL }}});
       }
+#if NODERAWSOCKETS
+      if (family == {{{ cDefs.AF_UNIX }}}) {
+        // Only anonymous socketpair() ends are supported: they never touch a
+        // filesystem path. Named (pathname) AF_UNIX sockets are not
+        // implemented.
+        if (!pair) {
+          throw new FS.ErrnoError({{{ cDefs.EAFNOSUPPORT }}});
+        }
+        // node has no AF_UNIX datagram primitive; only stream pairs exist.
+        if (type != {{{ cDefs.SOCK_STREAM }}}) {
+          throw new FS.ErrnoError({{{ cDefs.EPROTONOSUPPORT }}});
+        }
+      }
+#endif
       var streaming = type == {{{ cDefs.SOCK_STREAM }}};
-      if (streaming && protocol && protocol != {{{ cDefs.IPPROTO_TCP }}}) {
+      // The IPPROTO_TCP protocol guard only applies to INET stream sockets;
+      // unix stream sockets use protocol 0.
+      if (streaming && protocol && protocol != {{{ cDefs.IPPROTO_TCP }}}
+#if NODERAWSOCKETS
+          && family != {{{ cDefs.AF_UNIX }}}
+#endif
+         ) {
         throw new FS.ErrnoError({{{ cDefs.EPROTONOSUPPORT }}}); // if SOCK_STREAM, must be tcp or 0.
       }
 

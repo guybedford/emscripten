@@ -481,6 +481,13 @@ class sockets(BrowserCore):
     # getsockname() must report it (POSIX), then accept+echo as usual.
     self.do_runf('sockets/test_tcp_server.c', 'done\n', cflags=['-sNODERAWSOCKETS', '-DNO_EXPLICIT_BIND'])
 
+  # socketpair() ends are anonymous (no filesystem name is ever involved), so
+  # the pair works without any filesystem coupling, backed by an in-process
+  # pair of cross-wired streams.
+  @also_with_proxy_to_pthread
+  def test_noderawsockets_unix_pair(self):
+    self.do_runf('sockets/test_unix_pair.c', 'done\n', cflags=['-sNODERAWSOCKETS'])
+
   def test_noderawsockets_tcp_ipv6(self):
     # Self-contained IPv6 TCP loopback accept+echo over ::1: bind(:0)+getsockname,
     # listen, accept, non-blocking connect, send/recv on AF_INET6 sockets.

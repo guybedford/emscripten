@@ -285,6 +285,53 @@ var NodeSockFSLibrary = {
           o.keepAliveCnt || 0);
       } catch (e) {}
     },
+    // socketpair(): two connected, unnamed stream ends, backed by an
+    // in-process pair of cross-wired Duplex streams. The sock_ops layer only
+    // consumes the stream interface (data/end/close/drain/error events,
+    // write/end/destroy, high-water backpressure), so both ends flow through
+    // the same wireConnection seam as every other stream socket - no
+    // pair-specific paths downstream. The ends are process-local: pair fds
+    // cannot be handed to another process or thread.
+    socketPair(sock1, sock2) {
+      var Duplex = (process.getBuiltinModule || require)('stream').Duplex;
+      var makeEnd = () => {
+        var d = new Duplex({
+          allowHalfOpen: true,
+          read() {},
+          // Deliver asynchronously, like a real socket. A write/FIN/reset
+          // lands on the peer unless it is already gone.
+          write(chunk, encoding, cb) {
+            process.nextTick(() => {
+              if (!d.peerEnd.destroyed) d.peerEnd.push(chunk);
+              cb();
+            });
+          },
+          final(cb) {
+            process.nextTick(() => {
+              if (!d.peerEnd.destroyed) d.peerEnd.push(null);
+              cb();
+            });
+          },
+          destroy(err, cb) {
+            process.nextTick(() => {
+              if (!d.peerEnd.destroyed && !d.peerEnd.readableEnded) d.peerEnd.push(null);
+            });
+            cb(err);
+          },
+        });
+        return d;
+      };
+      var conn1 = makeEnd();
+      var conn2 = makeEnd();
+      conn1.peerEnd = conn2;
+      conn2.peerEnd = conn1;
+      sock1.state = sock2.state = {{{ SOCK_STATE_CONNECTED }}};
+      // Both ends are unnamed: getsockname/getpeername report the family only.
+      sock1.saddr = sock2.saddr = '';
+      sock1.daddr = sock2.daddr = '';
+      nodeSockHelpers.wireConnection(sock1, conn1);
+      nodeSockHelpers.wireConnection(sock2, conn2);
+    },
     // Forward a connected node socket's events onto sock.
     wireConnection(sock, conn) {
       sock.connection = conn;

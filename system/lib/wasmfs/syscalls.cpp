@@ -1764,6 +1764,11 @@ int __syscall_socket(
   return -ENOSYS;
 }
 
+int __syscall_socketpair(
+  int domain, int type, int protocol, int fd[2], int unused1, int unused2) {
+  return -ENOSYS;
+}
+
 int __syscall_listen(
   int sockfd, int backlog, int unused1, int unused2, int unused3, int unused4) {
   return -ENOSYS;

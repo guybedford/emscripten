@@ -355,9 +355,42 @@ var SyscallsLibrary = {
     var sock = SOCKFS.createSocket(domain, type, protocol);
     return sock.stream.fd;
   },
+#if NODERAWSOCKETS
+  __syscall_socketpair__deps: ['$SOCKFS', '$nodeSockHelpers'],
+#else
+  __syscall_socketpair__nothrow: true,
+#endif
+  __syscall_socketpair: (domain, type, protocol, fds, u1, u2) => {
+#if NODERAWSOCKETS
+    // Only AF_UNIX pairs exist (as on Linux). The two ends are anonymous
+    // connected peers with no filesystem name.
+    if (domain != {{{ cDefs.AF_UNIX }}}) {
+      return -{{{ cDefs.EOPNOTSUPP }}};
+    }
+    var sock1 = SOCKFS.createSocket(domain, type, protocol, /*pair=*/true);
+    var sock2 = SOCKFS.createSocket(domain, type, protocol, /*pair=*/true);
+    nodeSockHelpers.socketPair(sock1, sock2);
+    if (type & {{{ cDefs.SOCK_NONBLOCK }}}) {
+      sock1.stream.flags |= {{{ cDefs.O_NONBLOCK }}};
+      sock2.stream.flags |= {{{ cDefs.O_NONBLOCK }}};
+    }
+    {{{ makeSetValue('fds', '0', 'sock1.stream.fd', 'i32') }}};
+    {{{ makeSetValue('fds', '4', 'sock2.stream.fd', 'i32') }}};
+    return 0;
+#else
+    return -{{{ cDefs.ENOSYS }}};
+#endif
+  },
   __syscall_getsockname__deps: ['$getSocketFromFD', '$writeSockaddr', '$DNS'],
   __syscall_getsockname: (fd, addr, len, u1, u2, u3) => {
     var sock = getSocketFromFD(fd);
+#if NODERAWSOCKETS
+    if (sock.family == {{{ cDefs.AF_UNIX }}}) {
+      // A socketpair() end is unnamed: the address is the family alone.
+      writeSockaddr(addr, sock.family, '', 0, len);
+      return 0;
+    }
+#endif
     // TODO: sock.saddr should never be undefined, see TODO in websocket_sock_ops.getname
     var errno = writeSockaddr(addr, sock.family, DNS.lookup_name(sock.saddr || '0.0.0.0'), sock.sport, len);
 #if ASSERTIONS
@@ -368,6 +401,17 @@ var SyscallsLibrary = {
   __syscall_getpeername__deps: ['$getSocketFromFD', '$writeSockaddr', '$DNS'],
   __syscall_getpeername: (fd, addr, len, u1, u2, u3) => {
     var sock = getSocketFromFD(fd);
+#if NODERAWSOCKETS
+    if (sock.family == {{{ cDefs.AF_UNIX }}}) {
+      // A socketpair() end is connected to an unnamed peer (daddr == '');
+      // an unconnected socket has daddr undefined.
+      if (sock.daddr === undefined) {
+        return -{{{ cDefs.ENOTCONN }}};
+      }
+      writeSockaddr(addr, sock.family, '', 0, len);
+      return 0;
+    }
+#endif
     if (!sock.daddr) {
       return -{{{ cDefs.ENOTCONN }}}; // The socket is not connected.
     }
