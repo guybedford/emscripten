@@ -1687,7 +1687,6 @@ class libcxxabi(ExceptionLibrary, MTLibrary, DebugLibrary):
       'stdlib_typeinfo.cpp',
       'private_typeinfo.cpp',
       'cxa_exception_js_utils.cpp',
-      '__cpp_exception.S',
     ]
     match self.eh_mode:
       case Exceptions.NONE:
@@ -1762,7 +1761,7 @@ class libunwind(ExceptionLibrary, MTLibrary):
   # Without this we can't build libunwind since it will pickup the unwind.h
   # that is part of llvm (which is not compatible for some reason).
   includes = ['system/lib/libunwind/include']
-  src_files = ['Unwind-wasm.c']
+  src_files = ['Unwind-wasm.c', '__cpp_exception.S']
 
   def __init__(self, **kwargs):
     super().__init__(**kwargs)
@@ -2485,8 +2484,11 @@ def get_libs_to_link():
     add_library('libc++')
   if settings.LINK_AS_CXX or sanitize:
     add_library('libc++abi')
-    if settings.WASM_EXCEPTIONS:
-      add_library('libunwind')
+  if settings.WASM_EXCEPTIONS:
+    # Wasm EH objects can come from any language frontend (e.g. rust), so the
+    # unwinding runtime and the `__cpp_exception` tag it defines are linked
+    # independently of C++.
+    add_library('libunwind')
 
   if settings.PROXY_POSIX_SOCKETS:
     add_library('libsockets_proxy')
