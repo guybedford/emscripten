@@ -14594,9 +14594,40 @@ w:0,t:0x[0-9a-fA-F]+: formatted: 42
 
     # When using Wasm exception, SUPPORT_LONGJMP defaults to 'wasm', which does
     # not use the JS-based support. This should succeed.
-    # -fwasm-exceptions exports __cpp_exception, so this is necessary
-    self.set_setting('DEFAULT_TO_CXX')
     self.do_runf('core/test_longjmp.c', cflags=['-fwasm-exceptions'])
+
+  def test_wasm_exceptions_without_cxx(self):
+    # Wasm EH objects can come from non-C++ frontends (e.g. rustc, which links
+    # via emcc rather than em++), so `-fwasm-exceptions` must provide the
+    # `__cpp_exception` tag and the unwinding runtime without LINK_AS_CXX.
+    # Simulate such an object with asm that throws the tag, alongside a C
+    # caller of the Itanium unwind API.
+    create_file('throw.S', '''
+.tagtype __cpp_exception i32
+.text
+.globl throw_tag
+throw_tag:
+  .functype throw_tag (i32) -> ()
+  local.get 0
+  throw __cpp_exception
+  end_function
+''')
+    create_file('main.c', '''
+      #include <stdio.h>
+      struct _Unwind_Exception;
+      int _Unwind_RaiseException(struct _Unwind_Exception *);
+      void throw_tag(int);
+      int main(int argc, char* argv[]) {
+        if (argc > 100) {
+          throw_tag(argc);
+          _Unwind_RaiseException(0);
+        }
+        printf("ok\\n");
+        return 0;
+      }
+    ''')
+    # -mexception-handling is needed for the assembler to accept `throw`.
+    self.do_runf('main.c', 'ok', cflags=['throw.S', '-fwasm-exceptions', '-mexception-handling'])
 
   def test_memory_init_file_unsupported(self):
     self.assert_fail([EMCC, test_file('hello_world.c'), '-Werror', '--memory-init-file=1'], 'error: --memory-init-file is no longer supported')
