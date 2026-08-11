@@ -19,5 +19,15 @@
  {
   "name": "emcc$defun$foo",
   "reaches": []
+ },
+ {
+  "name": "emcc$defun$tableUser",
+  "reaches": []
+ },
+ {
+  "name": "emcc$export$_tableExport",
+  "export": "tableExport",
+  "reaches": [],
+  "root": true
  }
 ]

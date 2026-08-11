@@ -31,3 +31,14 @@ var arrow = () => {
 }
 
 wasmImports = {};
+
+// A `var x = wasmExports['y']` at the top level is the export-receiving
+// idiom, but inside a function it is an ordinary use that must root the
+// export rather than redefine it (e.g. wasm-bindgen's
+// `const table = wasmExports['__wbindgen_externrefs']` in library code).
+var _tableExport = wasmExports['tableExport'];
+
+function tableUser() {
+  const table = wasmExports['tableExport'];
+  table.grow(1);
+}

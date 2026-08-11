@@ -676,10 +676,26 @@ function emitDCEGraph(ast) {
   // object a function name is called on), so we do not track those. We consider
   // all content inside them as top-level, which means it is used.
   var specialScopes = 0;
+  // Depth of function-like scopes. The export-receiving idiom
+  // (`var _x = wasmExports['x']`) is only ever a top-level statement; a
+  // declaration inside a function (e.g. `const table = wasmExports['t']` in
+  // library code) is an ordinary use that must root the export, not define it.
+  var functionDepth = 0;
+
+  function isFunctionLike(node) {
+    return (
+      node.type === 'FunctionDeclaration' ||
+      node.type === 'FunctionExpression' ||
+      node.type === 'ArrowFunctionExpression'
+    );
+  }
 
   fullWalk(
     ast,
     (node) => {
+      if (isFunctionLike(node)) {
+        functionDepth--;
+      }
       if (isWasmImportsAssign(node)) {
         const assignedObject = getWasmImportsValue(node);
         assignedObject.properties.forEach((item) => {
@@ -749,7 +765,7 @@ function emitDCEGraph(ast) {
         if (isExportUse(target)) {
           emptyOut(node);
         }
-      } else if (node.type === 'VariableDeclaration') {
+      } else if (node.type === 'VariableDeclaration' && functionDepth === 0) {
         if (node.declarations.length === 1) {
           const item = node.declarations[0];
           const name = item.id.name;
@@ -850,10 +866,14 @@ function emitDCEGraph(ast) {
       if (node.type === 'ArrowFunctionExpression' || (node.type === 'Property' && node.method)) {
         specialScopes++;
       }
+      if (isFunctionLike(node)) {
+        functionDepth++;
+      }
     },
   );
   // Scoping must balance out.
   assert(specialScopes === 0);
+  assert(functionDepth === 0);
   // We must have found the info we need.
   assert(
     foundWasmImportsAssign,
