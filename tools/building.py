@@ -296,15 +296,29 @@ def get_wasm_bindgen_exported_symbols(input_files):
   nm_args += input_files
 
   result = check_call(nm_args, stdout=PIPE)
-  symbols = []
+  symbols = set()
   for line in result.stdout.splitlines():
     _, symbol = line.split()
-    # Skip mangled (non-C) symbols
-    if symbol.startswith(('_Z', '_R', 'anon.')):
-      continue
-    symbols.append(symbol)
+    symbols.add(symbol)
 
-  return symbols
+  # Export only the symbols the wasm-bindgen post-link step consumes: its
+  # `__wbindgen_*` descriptor functions and runtime helpers, and the
+  # `__externref_*` table helpers.  Each wasm-bindgen export shim `X` is
+  # identified by an accompanying defined `__wbindgen_describe_X` (descriptors
+  # of JS imports have no defined counterpart).  Exporting every C-named
+  # symbol in the inputs instead would force extraction of unrelated archive
+  # members (e.g. all of Rust's compiler-builtins) and spill them into the
+  # final module's exports.
+  describe_prefix = '__wbindgen_describe_'
+  exports = []
+  for symbol in sorted(symbols):
+    if symbol.startswith(('__wbindgen_', '__externref_')):
+      exports.append(symbol)
+      shim = symbol.removeprefix(describe_prefix)
+      if shim != symbol and shim in symbols:
+        exports.append(shim)
+
+  return exports
 
 
 def lld_flags(args, linker_inputs=None):
@@ -1333,14 +1347,25 @@ def run_wasm_bindgen(infile):
       '--out-dir',
       bindgen_out_dir,
   ]
+  pre_exports = {e.name for e in webassembly.get_exports(infile)}
   check_call(cmd)
 
   # Don't try to predict the .wasm filename that wasm-bindgen outputs. Instead
   # just grab the .wasm file itself.
   all_output_files = os.listdir(bindgen_out_dir)
   new_wasm_file = [x for x in all_output_files if x.endswith('.wasm')][0]
+  new_wasm = os.path.join(bindgen_out_dir, new_wasm_file)
 
-  shutil.copyfile(os.path.join(bindgen_out_dir, new_wasm_file), infile)
+  # wasm-bindgen consumes its descriptor exports, renames its export shims to
+  # their JS-facing names, and prunes unused runtime helpers, so exports it
+  # consumed are expected to be absent from the final module.  Drop them from
+  # USER_EXPORTS (rustc lists all `#[no_mangle]` symbols in EXPORTED_FUNCTIONS
+  # when driving the link) so they are not reported as undefined exports.
+  consumed = pre_exports - {e.name for e in webassembly.get_exports(new_wasm)}
+  consumed = {asmjs_mangle(e) for e in consumed}
+  settings.USER_EXPORTS = [e for e in settings.USER_EXPORTS if e not in consumed]
+
+  shutil.copyfile(new_wasm, infile)
 
   return os.path.join(bindgen_out_dir, 'library_bindgen.js')
 

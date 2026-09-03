@@ -15314,7 +15314,22 @@ addToLibrary({
     ''')
 
     self.run_process(['cargo', 'install', 'wasm-bindgen-cli'])
-    self.do_runf('empty.c', '42', cflags=[lib, '-sWASM_BINDGEN', '-Wno-experimental', '--post-js=post.js', '-lexports.js'])
+    # `___externref_drop_slice` emulates rustc-driven links, where rustc lists
+    # every `#[no_mangle]` symbol in EXPORTED_FUNCTIONS: wasm-bindgen prunes
+    # the ones its generated bindings don't use, which must not be reported as
+    # undefined exports.
+    err = self.run_process([EMCC, 'empty.c', lib, '-sWASM_BINDGEN', '-Wno-experimental', '--post-js=post.js', '-lexports.js', '-sEXPORTED_FUNCTIONS=___externref_drop_slice', '-o', 'empty.js'] + self.get_cflags(), stderr=PIPE).stderr
+    self.assertNotContained('undefined exported symbol', err)
+    self.assertContained('42', self.run_js('empty.js'))
+
+    # Only wasm-bindgen's own symbols and its export shims may be force-
+    # exported from the linker inputs; other archive members (e.g. Rust's
+    # compiler-builtins, such as `__multi3`) must not be pulled in and spilled
+    # into the module's exports.
+    with webassembly.Module('empty.wasm') as module:
+      exports = {e.name for e in module.get_exports()}
+    self.assertIn('rs_add', exports)
+    self.assertNotIn('__multi3', exports)
 
   @requires_rust
   @requires_dev_dependency('typescript')
