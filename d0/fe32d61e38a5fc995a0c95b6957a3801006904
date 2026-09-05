@@ -1,0 +1,23 @@
+.circleci/config.yml
+  s_12be260c745353::t_06ddbdf073e5e8 87-88
+test/rust/bindgen_greeter/Cargo.toml
+  s_12be260c745353::t_e267680f495480 10-11,13
+test/test_other.py
+  s_12be260c745353::t_0b575a3ad7c284 15367,15463,15469-15472
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d0fe32d61e38a5fc995a0c95b6957a3801006904",
+  "prompts": {},
+  "sessions": {
+    "s_12be260c745353": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f91146550ffe3n6U7lE9HGoRAr",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Guy Bedford <gbedford@cloudflare.com>"
+    }
+  }
+}
