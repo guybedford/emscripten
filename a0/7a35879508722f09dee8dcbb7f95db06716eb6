@@ -1,0 +1,19 @@
+system/lib/libc/emscripten_internal.h
+  s_012db06836eaa8::t_f96f33e97042a7 100-102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "a07a35879508722f09dee8dcbb7f95db06716eb6",
+  "prompts": {},
+  "sessions": {
+    "s_012db06836eaa8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fe8b9942ffferbto8NIWKBlnul",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Guy Bedford <gbedford@cloudflare.com>"
+    }
+  }
+}
