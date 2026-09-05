@@ -1,0 +1,21 @@
+test/rust/bindgen_greeter/Cargo.toml
+  s_578ae4f864a076::t_f9429b4cabaf49 13
+test/test_other.py
+  s_578ae4f864a076::t_173ae0b68f3e13 15367,15463
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "ae958375fb84943da90058ae38a992dc0f28ad38",
+  "prompts": {},
+  "sessions": {
+    "s_578ae4f864a076": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f90695ba7ffemopaSMamG6ndwi",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Guy Bedford <gbedford@cloudflare.com>"
+    }
+  }
+}
