@@ -1,0 +1,19 @@
+test/test_sockets_node.py
+  s_428de3de98ffc4::t_618e58cfc4ea17 225-240
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "a8975dbb6ccd4c227242aaf21f39858362ee9368",
+  "prompts": {},
+  "sessions": {
+    "s_428de3de98ffc4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fe8f246c9ffePKzS35mkEx95DF",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Guy Bedford <gbedford@cloudflare.com>"
+    }
+  }
+}
