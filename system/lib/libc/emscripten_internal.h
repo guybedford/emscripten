@@ -14,6 +14,7 @@
 #define __EMSCRIPTEN_INTERNAL_H__
 
 #include <emscripten/em_macros.h>
+#include <emscripten/eventloop.h>
 #include <emscripten/proxying.h>
 #include <emscripten/webaudio.h>
 #include <emscripten/html5.h>
@@ -96,6 +97,13 @@ void _emscripten_dlopen_js(struct dso* handle,
 void* _dlsym_catchup_js(struct dso* handle, int sym_index);
 
 int _setitimer_js(int which, double timeout);
+
+// Behind emscripten_poll_callback (emscripten_poll_callback.c); see
+// _emscripten_poll_callback_js in libeventloop.js.
+int _emscripten_poll_callback_js(int fd, int events, em_poll_callback callback, void* userdata);
+int _emscripten_poll_callback_cancel_js(int id);
+void _emscripten_poll_callback_deliver(em_poll_callback callback, int fd, int revents, void* userdata);
+void _emscripten_poll_callback_on_thread(pthread_t t, em_poll_callback callback, int fd, int revents, void* userdata);
 
 // Synchronize loaded modules across threads.
 // Runs _emscripten_dlsync_self on each of the threads that are running at

@@ -120,6 +120,75 @@ LibraryJSEventLoop = {
     emSetImmediate(tick);
   },
 
+#if WASMFS
+  // poll()-based readiness lives in the JS syscall layer (libsyscall.js), which
+  // WASMFS does not use.
+  _emscripten_poll_callback_js: (fd, events, callback, userdata) => -{{{ cDefs.ENOSYS }}},
+  _emscripten_poll_callback_cancel_js: (id) => -{{{ cDefs.ENOSYS }}},
+#else
+  // Outstanding emscripten_poll_callback waits, keyed by id (plus nextId). Ids
+  // are handed out monotonically and never reused, so cancelling an
+  // already-completed wait finds nothing rather than a different wait.
+  $pollCallbacks__internal: true,
+  $pollCallbacks: {nextId: 1},
+
+  // poll(2) on one fd with a callback instead of a blocking call, behind the C
+  // wrapper emscripten_poll_callback (emscripten_poll_callback.c), which holds
+  // the calling thread's runtime keepalive from arm until the delivery below
+  // releases it. Returns a wait id (> 0), or -EBADF. The callback fires exactly
+  // once, on the arming thread, never on the arming call's or a producer's
+  // stack: on the main thread it is deferred to a microtask; from a pthread (the
+  // FS lives on the main thread, so this is proxied) it is posted to that
+  // thread's queue.
+  _emscripten_poll_callback_js__proxy: 'sync',
+  _emscripten_poll_callback_js__deps: [
+    '$FS', '$fdWaitOnce', '$pollCallbacks', '$callUserCallback',
+    '_emscripten_poll_callback_deliver',
+#if PTHREADS
+    '_emscripten_poll_callback_on_thread',
+#endif
+  ],
+  _emscripten_poll_callback_js: (fd, events, callback, userdata) => {
+    if (!FS.getStream(fd)) return -{{{ cDefs.EBADF }}};
+    var id = pollCallbacks.nextId++;
+    var wait = pollCallbacks[id] = {};
+#if PTHREADS
+    wait.thread = PThread.currentProxiedOperationCallerThread;
+#endif
+    wait.cancel = fdWaitOnce(fd, events, (revents) => {
+      delete pollCallbacks[id];
+#if PTHREADS
+      if (wait.thread) {
+        __emscripten_poll_callback_on_thread(wait.thread, callback, fd, revents, userdata);
+        return;
+      }
+#endif
+      queueMicrotask(() => callUserCallback(
+        () => __emscripten_poll_callback_deliver(callback, fd, revents, userdata)));
+    });
+    return id;
+  },
+
+  // Cancel an outstanding wait by id, from the thread that armed it. Returns 0
+  // (the wrapper then releases the hold), or -ENOENT if there is no such
+  // outstanding wait - including one that already completed and whose callback
+  // is or will be delivered, and one armed by another thread.
+  _emscripten_poll_callback_cancel_js__proxy: 'sync',
+  _emscripten_poll_callback_cancel_js__deps: ['$pollCallbacks'],
+  _emscripten_poll_callback_cancel_js: (id) => {
+    var wait = pollCallbacks[id];
+    if (!wait) return -{{{ cDefs.ENOENT }}};
+#if PTHREADS
+    if (wait.thread != PThread.currentProxiedOperationCallerThread) {
+      return -{{{ cDefs.ENOENT }}};
+    }
+#endif
+    delete pollCallbacks[id];
+    wait.cancel();
+    return 0;
+  },
+#endif
+
   emscripten_set_timeout__deps: ['$safeSetTimeout'],
   emscripten_set_timeout: (cb, msecs, userData) =>
     safeSetTimeout(() => {{{ makeDynCall('vp', 'cb') }}}(userData), msecs),

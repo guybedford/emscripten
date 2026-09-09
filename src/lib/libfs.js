@@ -1262,11 +1262,6 @@ FS.staticInit();`;
         throw new FS.ErrnoError({{{ cDefs.EBADF }}});
       }
       if (stream.getdents) stream.getdents = null; // free readdir state
-      // The fd is going away: wake anything waiting on it (poll/epoll) with
-      // POLLNVAL so a blocking wait unblocks and an epoll registration is evicted
-      // on its next derive. Only sockets/pipes/epoll ever carry a wait-queue, so
-      // for every other stream (incl. nodeless noderawfs stdio) this is a no-op.
-      stream.node?.notifyListeners({{{ cDefs.POLLNVAL }}});
       try {
         if (stream.stream_ops.close) {
           stream.stream_ops.close(stream);
@@ -1276,6 +1271,13 @@ FS.staticInit();`;
       } finally {
         FS.closeStream(stream.fd);
       }
+      // The fd is gone: wake anything waiting on it (poll/epoll/poll callbacks)
+      // with POLLNVAL. This runs after the slot is cleared so a waiter that
+      // re-derives synchronously sees the fd as closed (pollOne reports
+      // POLLNVAL), rather than the still-registered stream. Only sockets/pipes/
+      // epoll ever carry a wait-queue, so for every other stream (incl. nodeless
+      // noderawfs stdio) this is a no-op.
+      stream.node?.notifyListeners({{{ cDefs.POLLNVAL }}});
       stream.fd = null;
 #if FS_DEBUG
       if (stream.path) {

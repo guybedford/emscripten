@@ -13565,6 +13565,21 @@ void foo() {}
     # the instance down.
     self.do_runf('other/test_epoll_dup.c', 'done\n')
 
+  @parameterized({
+    '': ('test_poll_callback',),
+    'cancel': ('test_poll_callback_cancel',),
+    'epoll': ('test_poll_callback_epoll',),
+    'epoll_multi': ('test_poll_callback_epoll_multi',),
+    'epoll_modes': ('test_poll_callback_epoll_modes',),
+    'epoll_nested': ('test_poll_callback_epoll_nested',),
+  })
+  def test_poll_callback(self, name):
+    # emscripten_poll_callback: poll() on one fd with a callback instead of a
+    # blocking call (no ASYNCIFY/JSPI), on pipes and on an epoll fd (the
+    # non-blocking form of epoll_wait). An outstanding wait holds the runtime;
+    # the process exits once none is.
+    self.do_runf(f'other/{name}.c', 'done\n', cflags=['-sFORCE_FILESYSTEM', '-sEXIT_RUNTIME'])
+
   @requires_pthreads
   @no_bun('https://github.com/emscripten-core/emscripten/issues/26197')
   def test_pthread_trap(self):

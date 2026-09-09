@@ -58,6 +58,13 @@ See docs/process.md for more on how version tagging works.
 - `WASM_BIGINT` was deprecated. BigInt integration is standard and enabled by
   default across all supported engines; it should now only ever be disabled
   implicitly when targeting JavaScript via `-sWASM=0`. (#27558)
+- Added `emscripten_poll_callback`/`emscripten_poll_callback_cancel` (in
+  `<emscripten/eventloop.h>`, experimental): `poll()` on a single file
+  descriptor with a callback in place of the blocking call, so it needs no
+  `ASYNCIFY`/`JSPI`. It accepts any fd `poll()` does, including an epoll fd
+  (readable while its set has ready events), which gives a non-blocking
+  `epoll_wait`. An outstanding wait keeps the runtime alive until it completes
+  or is cancelled.
 
 6.0.7 - 08/17/26
 ----------------

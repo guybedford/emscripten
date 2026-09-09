@@ -2600,6 +2600,14 @@ The current type of b is: 9
         interleaved_output=False)
 
   @requires_pthreads
+  def test_poll_callback_thread(self):
+    # A wait armed from a pthread is delivered on it and holds it alive from the
+    # moment the arming call returns, even if the thread's entry point returns
+    # before the readiness arrives.
+    self.set_setting('EXIT_RUNTIME')
+    self.do_runf('pthread/test_poll_callback_thread.c', 'done\n')
+
+  @requires_pthreads
   @flaky('https://github.com/emscripten-core/emscripten/issues/19795')
   def test_pthread_proxying_refcount(self):
     self.set_setting('EXIT_RUNTIME')
@@ -9751,6 +9759,28 @@ NODEFS is no longer included by default; build with -lnodefs.js
     if self.get_setting('JSPI') and engine_is_v8(self.get_current_js_engine()):
       self.skipTest('test requires setTimeout which is not supported under v8')
     self.do_runf('core/test_epoll_blocking_asyncify.c', 'done\n')
+
+  @with_asyncify_and_jspi
+  @needs_epoll
+  def test_poll_callback_epoll(self):
+    # A suspended blocking epoll_wait and a poll callback on one epoll share a
+    # single ready list: they take disjoint slices, never the same edge.
+    if self.get_setting('JSPI') and engine_is_v8(self.get_current_js_engine()):
+      self.skipTest('test requires setTimeout which is not supported under v8')
+    self.do_runf('core/test_poll_callback_epoll.c', 'done\n', cflags=['-sEXIT_RUNTIME'])
+
+  @parameterized({
+    '': ([],),
+    'pthread': (['-pthread', '-sPROXY_TO_PTHREAD', '-sEXIT_RUNTIME'],),
+  })
+  @needs_epoll
+  def test_epoll_pollable(self, args):
+    # An epoll fd is itself pollable: poll() and select() report it readable
+    # exactly when epoll_wait() would return events (zero-timeout probes, and a
+    # blocking poll() woken by a leaf edge under pthreads), as on Linux.
+    if args:
+      self.require_pthreads()
+    self.do_runf('core/test_epoll_pollable.c', 'done\n', cflags=args)
 
   @parameterized({
     '': ([],),

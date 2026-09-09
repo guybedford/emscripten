@@ -71,7 +71,7 @@ var EpollLibrary = {
         // it all live.
         close(stream) {
           var ep = stream.shared;
-          // FS.close already fired POLLNVAL on the (shared) node, waking any
+          // FS.close then fires POLLNVAL on the (shared) node, waking any
           // parent epoll watching this fd so it re-derives and drops the
           // now-stale registration (via doEpollWait's shared check).
           if (--ep.refcount) return;

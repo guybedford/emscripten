@@ -716,6 +716,32 @@ var SyscallsLibrary = {
   __syscall_poll_nonblocking: (fds, nfds) => {
     return doPollSync(fds, nfds);
   },
+
+  // A one-shot readiness wait on a single fd - the primitive behind
+  // emscripten_poll_callback (libeventloop.js). Calls `done(revents)` exactly
+  // once, when `fd` reports one of `events` (POLL* flags; error/hangup/close
+  // always count): synchronously if already ready (the caller defers as it needs
+  // to), otherwise from the node's wait-queue on the first readiness edge that
+  // derives ready. Returns a cancel function, or null if `done` already ran.
+  $fdWaitOnce__internal: true,
+  $fdWaitOnce__deps: ['$FS', '$pollOne'],
+  $fdWaitOnce: (fd, events, done) => {
+    var revents = pollOne(fd, events);
+    if (revents) {
+      done(revents);
+      return null;
+    }
+    // pollOne reports POLLNVAL for a closed fd, so the stream exists here.
+    var reg = FS.getStream(fd).node.addListener(() => {
+      var r = pollOne(fd, events);
+      if (r) {
+        reg.listeners.delete(reg.entry);
+        done(r);
+      }
+    });
+    return () => reg.listeners.delete(reg.entry);
+  },
+
   // epoll: the entry points live here (like every other syscall); the heavy
   // lifting is in libepoll.js, which they call after resolving the epoll stream.
   __syscall_epoll_create1__deps: ['$epollNewInstance'],
