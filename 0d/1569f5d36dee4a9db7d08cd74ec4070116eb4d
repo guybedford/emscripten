@@ -1,0 +1,65 @@
+ChangeLog.md
+  s_76000616be222a::t_66e2ead622fa5d 61-67
+src/lib/libepoll.js
+  s_76000616be222a::t_b8d4ab80e73acf 74
+src/lib/libfs.js
+  s_76000616be222a::t_c35ab8d7efe8a6 1274-1280
+src/lib/libsigs.js
+  s_76000616be222a::t_3425cebaf2fb50 334-335
+src/lib/libsyscall.js
+  s_76000616be222a::t_222b83a3cb2f69 726-750,758-759,767,773,778-843
+system/include/emscripten/eventloop.h
+  s_76000616be222a::t_a9266e1669217a 33-59
+system/lib/libc/emscripten_fd_wait_callback.c
+  s_76000616be222a::t_ca23932af8bc27 1-75
+system/lib/libc/emscripten_internal.h
+  s_76000616be222a::t_1fec03659791d4 17,104-110
+system/lib/wasmfs/syscalls.cpp
+  s_76000616be222a::t_e007db909e5e24 1896-1905
+test/codesize/test_codesize_hello_dylink_all.json
+  s_76000616be222a::t_bdb834ca52b8ef 2,4,291-292
+test/core/test_fd_wait_callback_epoll.c
+  s_76000616be222a::t_1e9318c00b2aba 1-98
+test/other/test_fd_wait_callback.c
+  s_76000616be222a::t_a1d241182fedc8 1-75
+test/other/test_fd_wait_callback_cancel.c
+  s_76000616be222a::t_c28d4d84e63912 1-60
+test/other/test_fd_wait_callback_epoll.c
+  s_76000616be222a::t_214e859a0eac8a 1-75
+test/other/test_fd_wait_callback_epoll_modes.c
+  s_76000616be222a::t_9adb8d42c0b4fe 1-78
+test/other/test_fd_wait_callback_epoll_multi.c
+  s_76000616be222a::t_c8847fb1cd0b02 1-82
+test/other/test_fd_wait_callback_epoll_nested.c
+  s_76000616be222a::t_020ca0e1e64b9d 1-70
+test/pthread/test_fd_wait_callback_thread.c
+  s_76000616be222a::t_b52a1ead9e7c61 1-54
+test/sockets/test_fd_wait_callback.c
+  s_76000616be222a::t_dfe11414b070ee 1-76
+test/test_core.py
+  s_76000616be222a::t_bf9b656cd2b57b 2602-2609,9763-9771
+test/test_other.py
+  s_76000616be222a::t_3d09db4788a0a1 13555-13569
+test/test_sockets_node.py
+  s_76000616be222a::t_7f77df0757daec 269-276
+tools/native_sigs.py
+  s_76000616be222a::t_744630143988b7 532-533,819
+tools/system_libs.py
+  s_76000616be222a::t_ac1ee6f1c02ecc 1385
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "0d1569f5d36dee4a9db7d08cd74ec4070116eb4d",
+  "prompts": {},
+  "sessions": {
+    "s_76000616be222a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7c41234dffeYEVuWJ8fv6cSwi",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Guy Bedford <gbedford@cloudflare.com>"
+    }
+  }
+}
