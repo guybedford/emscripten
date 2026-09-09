@@ -25,7 +25,9 @@
 // through net.Socket, adopting the bound handle so an explicit source
 // address/port is honored; an unbound client binds an ephemeral port first,
 // since the kernel assigns the source port synchronously at connect() and
-// getsockname() must report it immediately.
+// getsockname() must report it immediately. A runtime with neither bind
+// primitive (workerd's node:net) still gets a plain client connect, with the
+// local name known only once connected.
 //
 // UDP uses the public node:dgram socket when it exposes a synchronous bindSync
 // (a recent node addition that ships alongside connectSync), giving the
@@ -110,6 +112,21 @@ var NodeSockFSLibrary = {
     useBoundSocket() {
       return nodeSockHelpers.boundSocketOk ??= !!nodeSockHelpers.getNet().BoundSocket;
     },
+    // The private tcp_wrap binding, or null on a runtime without it (e.g.
+    // workerd's node:net, which also lacks BoundSocket).
+    getTcpWrap() {
+      if (nodeSockHelpers.tcpWrap === undefined) {
+        try {
+          nodeSockHelpers.tcpWrap = process.binding('tcp_wrap');
+        } catch (e) {
+          nodeSockHelpers.tcpWrap = null;
+        }
+      }
+      return nodeSockHelpers.tcpWrap;
+    },
+    canBindTcp() {
+      return nodeSockHelpers.useBoundSocket() || !!nodeSockHelpers.getTcpWrap();
+    },
     // Synchronously bind a TCP socket to addr:port (0 = ephemeral) and record the
     // kernel-assigned name immediately. sock.bound is the resulting role-neutral
     // handle - a net.BoundSocket, or a raw tcp_wrap handle - adopted as-is by
@@ -134,12 +151,8 @@ var NodeSockFSLibrary = {
         sock.sport = n.port;
         return;
       }
-      var tcp;
-      try {
-        tcp = process.binding('tcp_wrap');
-      } catch (e) {
-        throw new FS.ErrnoError({{{ cDefs.EOPNOTSUPP }}});
-      }
+      var tcp = nodeSockHelpers.getTcpWrap();
+      if (!tcp) throw new FS.ErrnoError({{{ cDefs.EOPNOTSUPP }}});
       var handle = new tcp.TCP(tcp.constants.SOCKET);
       // bind6 for IPv6 literals, honoring IPV6_V6ONLY via the bind flags.
       var code = addr.includes(':')
@@ -589,16 +602,23 @@ var NodeSockFSLibrary = {
       sock.dport = port;
       sock.state = {{{ SOCK_STATE_CONNECTING }}};
       var net = nodeSockHelpers.getNet();
-      if (!sock.bound) {
-        // The kernel assigns the ephemeral source port synchronously at
-        // connect(), so an unbound client binds an ephemeral port first (the
-        // same eager bindHandle path an explicit bind() takes) and getsockname()
-        // is correct immediately, not only once the async connect completes.
-        nodeSockHelpers.bindHandle(sock, addr.includes(':') ? '::' : '0.0.0.0', 0);
+      var conn;
+      if (!sock.bound && !nodeSockHelpers.canBindTcp()) {
+        // No synchronous bind primitive at all (workerd's node:net): plain
+        // client connect, with the local name only known once connected.
+        conn = new net.Socket({ allowHalfOpen: true });
+      } else {
+        if (!sock.bound) {
+          // The kernel assigns the ephemeral source port synchronously at
+          // connect(), so an unbound client binds an ephemeral port first (the
+          // same eager bindHandle path an explicit bind() takes) and getsockname()
+          // is correct immediately, not only once the async connect completes.
+          nodeSockHelpers.bindHandle(sock, addr.includes(':') ? '::' : '0.0.0.0', 0);
+        }
+        // Connect through the bound handle so the bound source address/port is
+        // honored by the kernel.
+        conn = new net.Socket({ handle: sock.bound, pauseOnCreate: true, allowHalfOpen: true });
       }
-      // Connect through the bound handle so the bound source address/port is
-      // honored by the kernel.
-      var conn = new net.Socket({ handle: sock.bound, pauseOnCreate: true, allowHalfOpen: true });
       conn.once('connect', () => {
         sock.state = {{{ SOCK_STATE_CONNECTED }}};
         sock.saddr = conn.localAddress;

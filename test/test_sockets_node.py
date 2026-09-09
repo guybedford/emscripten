@@ -80,7 +80,7 @@ class sockets_node(RunnerCore):
   def test_nodejs_sockets_connect_failure(self):
     self.do_runf('sockets/test_sockets_echo_client.c', r'connect failed: (Connection refused|Host is unreachable)', regex=True, cflags=['-DSOCKK=666'], assert_returncode=NON_ZERO)
 
-  def _run_against_echo_server(self, src):
+  def _run_against_echo_server(self, src, cflags=None):
     # Start a loopback TCP echo server on an ephemeral port and run the test
     # against it, passing the port as argv[1].
     server = socketserver.TCPServer(('127.0.0.1', 0), EchoHandler)
@@ -88,7 +88,7 @@ class sockets_node(RunnerCore):
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-      self.do_runf(src, 'done\n', cflags=['-sNODERAWSOCKETS'], args=[str(port)])
+      self.do_runf(src, 'done\n', cflags=['-sNODERAWSOCKETS', *(cflags or [])], args=[str(port)])
     finally:
       server.shutdown()
       server.server_close()
@@ -102,6 +102,16 @@ class sockets_node(RunnerCore):
     # With -sNODERAWSOCKETS the client does a non-blocking connect, send and
     # recv over a real OS socket against a loopback echo server we run here.
     self._run_against_echo_server('sockets/test_tcp_echo.c')
+
+  def test_noderawsockets_echo_no_bind(self):
+    # A runtime with neither net.BoundSocket nor process.binding('tcp_wrap')
+    # (workerd's node:net) still supports a plain client connect, rather than
+    # failing the bind-first path with EOPNOTSUPP.
+    create_file('no_bind_pre.js', '''
+      delete require('net').BoundSocket;
+      process.binding = () => { throw new Error('No such module'); };
+    ''')
+    self._run_against_echo_server('sockets/test_tcp_echo.c', cflags=['--pre-js=no_bind_pre.js'])
 
   def test_noderawsockets_client_bind(self):
     # A client that bind()s an explicit source port has it honored by connect(),
