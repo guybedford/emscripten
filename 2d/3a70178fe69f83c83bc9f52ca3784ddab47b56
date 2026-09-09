@@ -1,0 +1,59 @@
+src/lib/libepoll.js
+  s_76000616be222a::t_70d6e6c69023f0 74
+src/lib/libfs.js
+  s_76000616be222a::t_29f9b730ae6f48 1274-1280
+src/lib/libsigs.js
+  s_76000616be222a::t_f15ee42dd65732 345-346
+system/lib/libc/emscripten_internal.h
+  s_76000616be222a::t_66094ecf051fd0 17,101-106
+system/lib/libc/emscripten_poll_callback.c
+  s_76000616be222a::t_f1769da0ff010b 1-75
+system/lib/wasmfs/syscalls.cpp
+  s_76000616be222a::t_6dd26a1f75e066 1896-1905
+test/codesize/test_codesize_hello_dylink_all.json
+  s_76000616be222a::t_51dbba34987412 2-4,298-299,1829-1830,1851-1852,2594-2595,4468-4469
+test/core/test_poll_callback_epoll.c
+  s_76000616be222a::t_1de32863f8f018 1-98
+test/other/test_poll_callback.c
+  s_76000616be222a::t_3b8a5d78e4e1f9 1-75
+test/other/test_poll_callback_cancel.c
+  s_76000616be222a::t_d6a29f1e60add5 1-60
+test/other/test_poll_callback_epoll.c
+  s_76000616be222a::t_2dd5553f542d1f 1-75
+test/other/test_poll_callback_epoll_modes.c
+  s_76000616be222a::t_b4d26bd430c4d5 1-78
+test/other/test_poll_callback_epoll_multi.c
+  s_76000616be222a::t_642947285f6bf0 1-82
+test/other/test_poll_callback_epoll_nested.c
+  s_76000616be222a::t_08aad9469a7a52 1-70
+test/pthread/test_poll_callback_thread.c
+  s_76000616be222a::t_502f0a432437eb 1-54
+test/sockets/test_poll_callback.c
+  s_76000616be222a::t_f853d2e4a52097 1-76
+test/test_core.py
+  s_76000616be222a::t_ecc7550104811a 2602-2609,9763-9784
+test/test_other.py
+  s_76000616be222a::t_84368a71454a3e 13568-13582
+test/test_sockets_node.py
+  s_76000616be222a::t_29a3f0639206f4 253-260
+tools/native_sigs.py
+  s_76000616be222a::t_0397a4ff282b37 533-534,840
+tools/system_libs.py
+  s_76000616be222a::t_964b02f76382c4 1391
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "2d3a70178fe69f83c83bc9f52ca3784ddab47b56",
+  "prompts": {},
+  "sessions": {
+    "s_76000616be222a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7c41234dffeYEVuWJ8fv6cSwi",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Guy Bedford <gbedford@cloudflare.com>"
+    }
+  }
+}
