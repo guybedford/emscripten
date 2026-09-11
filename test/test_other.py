@@ -3701,6 +3701,17 @@ More info: https://emscripten.org
                                '-sJSPI_EXPORTS=throws_after_suspend,caught_inside'] + args)
 
   @requires_jspi
+  def test_jspi_hooks_cpp_exception_mixed_eh(self):
+    # An exnref link may still receive legacy EH from prebuilt objects (Rust's
+    # std, for example); the hooks pass sees one flavor after translation.
+    self.run_process([EMXX, '-c', test_file('other/test_jspi_hooks_cpp_exception.cpp'),
+                      '-fwasm-exceptions', '-sWASM_LEGACY_EXCEPTIONS', '-o', 'legacy.o'])
+    self.run_process([EMXX, 'legacy.o', '-sJSPI', '-sJSPI_HOOKS', '-Wno-experimental', '-fwasm-exceptions',
+                      '-sWASM_LEGACY_EXCEPTIONS=0', '-sJSPI_EXPORTS=throws_after_suspend,caught_inside',
+                      '-o', 'mixed.js'])
+    self.assertFileContents(test_file('other/test_jspi_hooks_cpp_exception.out'), self.run_js('mixed.js'))
+
+  @requires_jspi
   def test_reentrant_jspi_oom(self):
     # No room on the heap for a fiber stack.
     self.do_runf('jspi/test_reentrant_jspi_oom.c',
