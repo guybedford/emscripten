@@ -2977,6 +2977,7 @@
     "jn",
     "jnf",
     "jrand48",
+    "jspi_register",
     "kill",
     "killpg",
     "l64a",

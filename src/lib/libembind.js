@@ -849,7 +849,7 @@ var LibraryEmbind = {
   },
 
   $embind__requireFunction__deps: ['$AsciiToString', '$throwBindingError'
-#if DYNCALLS || !WASM_BIGINT || MEMORY64 || CAN_ADDRESS_2GB
+#if DYNCALLS || !WASM_BIGINT || MEMORY64 || CAN_ADDRESS_2GB || JSPI
     , '$getDynCaller'
 #endif
   ],
@@ -874,13 +874,12 @@ var LibraryEmbind = {
         return getDynCaller(signature, rawFunction, isAsync);
       }
 #endif
-      var rtn = getWasmTableEntry(rawFunction);
 #if JSPI
       if (isAsync) {
-        rtn = WebAssembly.promising(rtn);
+        return getDynCaller(signature, rawFunction, true);
       }
 #endif
-      return rtn;
+      return getWasmTableEntry(rawFunction);
 #endif
     }
 
