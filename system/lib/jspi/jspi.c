@@ -47,6 +47,8 @@ typedef struct jspi_fiber {
   uintptr_t host_base;
   uintptr_t host_end;
   void* stack;
+  void* tls;      // the fiber's TLS block, or NULL when the module has no TLS
+  void* host_tls; // __tls_base of whoever entered or last resumed us
 #endif
 } jspi_fiber;
 
@@ -232,18 +234,72 @@ static void release_stack(jspi_fiber* f) {
   }
 }
 
+// Each fiber also owns a thread-local storage block, so `_Thread_local`
+// state is per fiber the way it is per thread: the block is initialized at
+// ENTER, __tls_base points at it while the fiber runs and at the host's block
+// otherwise. Only -pthread builds indirect TLS through __tls_base (LLVM lowers
+// thread-locals to plain data without atomics and bulk memory), so elsewhere
+// thread-locals stay shared by every fiber. TODO: run the block's
+// destructors at EXIT; pthread TSD destructors are per thread, not per fiber.
+#ifdef __EMSCRIPTEN_PTHREADS__
+extern void __wasm_init_tls(void* memory);
+
+static void* get_tls_base(void) {
+  return __builtin_wasm_tls_base();
+}
+
+static void set_tls_base(void* base) {
+  __asm__ volatile("local.get %0\n"
+                   "global.set __tls_base"
+                   :
+                   : "r"(base));
+}
+
+static void alloc_tls(jspi_fiber* f) {
+  size_t size = __builtin_wasm_tls_size();
+  if (!size) {
+    return;
+  }
+  f->tls = emscripten_builtin_memalign(__builtin_wasm_tls_align(), size);
+  if (!f->tls) {
+    emscripten_err("REENTRANT_JSPI: out of memory allocating a fiber TLS block");
+    abort();
+  }
+  // Sets __tls_base to the block as well.
+  __wasm_init_tls(f->tls);
+}
+
+static void release_tls(jspi_fiber* f) {
+  if (f->tls) {
+    emscripten_builtin_free(f->tls);
+  }
+}
+#else
+static void* get_tls_base(void) { return NULL; }
+static void set_tls_base(void* base) {}
+static void alloc_tls(jspi_fiber* f) {}
+static void release_tls(jspi_fiber* f) {}
+#endif
+
 // Switching to the fiber's stack: remember the host's limits (the host may
 // itself be a fiber) and prepare the fiber's.
 static void switch_to_fiber(jspi_fiber* f, uintptr_t host_sp) {
   f->host_sp = host_sp;
   f->host_base = emscripten_stack_get_base();
   f->host_end = emscripten_stack_get_end();
+  f->host_tls = get_tls_base();
+  if (f->tls) {
+    set_tls_base(f->tls);
+  }
   set_pending_limits(stack_low(f) + stack_size, stack_low(f));
 }
 
 static uintptr_t switch_to_host(jspi_fiber* f, uintptr_t sp) {
   check_overflow(stack_low(f), sp);
   set_pending_limits(f->host_base, f->host_end);
+  if (f->tls) {
+    set_tls_base(f->host_tls);
+  }
   return f->host_sp;
 }
 #endif
@@ -274,6 +330,9 @@ __jspi_hook_impl(uintptr_t sp, uint32_t event, uint64_t token, int error) {
 #if REENTRANT_JSPI
       alloc_stack(f);
       switch_to_fiber(f, sp);
+      // After switch_to_fiber recorded the host's base; __wasm_init_tls
+      // leaves the fiber's installed.
+      alloc_tls(f);
       sp = stack_low(f) + stack_size;
 #endif
       dispatch(JSPI_ENTER, f, 0);
@@ -284,6 +343,7 @@ __jspi_hook_impl(uintptr_t sp, uint32_t event, uint64_t token, int error) {
       set_cur_fiber(f->host);
 #if REENTRANT_JSPI
       sp = switch_to_host(f, sp);
+      release_tls(f);
       release_stack(f);
 #endif
       free_fiber(f);
