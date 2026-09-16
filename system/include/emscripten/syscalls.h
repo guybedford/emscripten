@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 #include <sys/statfs.h>
 #include <sys/time.h>
+#include <sys/timerfd.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
 
@@ -123,6 +124,9 @@ int __syscall_epoll_create1(int flags);
 int __syscall_epoll_ctl(int epfd, int op, int fd, struct epoll_event *ev);
 int __syscall_epoll_pwait(int epfd, struct epoll_event *ev, int maxevents, int timeout, const sigset_t *sigmask, size_t sigsetsize);
 int __syscall_epoll_pwait_nonblocking(int epfd, struct epoll_event *ev, int maxevents);
+int __syscall_timerfd_create(int clockid, int flags);
+int __syscall_timerfd_settime(int fd, int flags, const struct itimerspec *value, struct itimerspec *ovalue);
+int __syscall_timerfd_gettime(int fd, struct itimerspec *value);
 
 #ifdef __cplusplus
 }

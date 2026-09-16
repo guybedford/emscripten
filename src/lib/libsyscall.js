@@ -759,6 +759,44 @@ var SyscallsLibrary = {
     if (maxevents <= 0) return -{{{ cDefs.EINVAL }}};
     return doEpollWait(ep.shared, ev, maxevents);
   },
+  // timerfd: entry points here, implementation in libtimerfd.js.
+  __syscall_timerfd_create__deps: ['$timerfdNewInstance'],
+  __syscall_timerfd_create__proxy: 'sync',
+  __syscall_timerfd_create: (clockid, flags) => {
+    // TFD_CLOEXEC is accepted but a no-op (there is no exec).
+    if (flags & ~{{{ cDefs.TFD_NONBLOCK | cDefs.TFD_CLOEXEC }}}) return -{{{ cDefs.EINVAL }}};
+    if (clockid != {{{ cDefs.CLOCK_REALTIME }}} && clockid != {{{ cDefs.CLOCK_MONOTONIC }}} && clockid != {{{ cDefs.CLOCK_BOOTTIME }}}) {
+      return -{{{ cDefs.EINVAL }}};
+    }
+    return timerfdNewInstance(clockid, flags).fd;
+  },
+  __syscall_timerfd_settime__deps: ['$FS', '$timerfdSetTime', '$timerfdGetTime', '$timerfdLoadTimespec'],
+  __syscall_timerfd_settime__proxy: 'sync',
+  __syscall_timerfd_settime: (fd, flags, value, ovalue) => {
+    var stream = FS.getStream(fd);
+    if (!stream) return -{{{ cDefs.EBADF }}};
+    var t = stream.shared.timerfd;
+    if (!t) return -{{{ cDefs.EINVAL }}};
+    // TFD_TIMER_CANCEL_ON_SET is accepted but a no-op: there is no
+    // discontinuous change of the realtime clock to observe.
+    if (flags & ~{{{ cDefs.TFD_TIMER_ABSTIME | cDefs.TFD_TIMER_CANCEL_ON_SET }}}) return -{{{ cDefs.EINVAL }}};
+    var ms = timerfdLoadTimespec(value + {{{ C_STRUCTS.itimerspec.it_value }}});
+    var interval = timerfdLoadTimespec(value + {{{ C_STRUCTS.itimerspec.it_interval }}});
+    if (ms < 0 || interval < 0) return -{{{ cDefs.EINVAL }}};
+    if (ovalue) timerfdGetTime(t, ovalue);
+    timerfdSetTime(t, flags, ms, interval);
+    return 0;
+  },
+  __syscall_timerfd_gettime__deps: ['$FS', '$timerfdGetTime'],
+  __syscall_timerfd_gettime__proxy: 'sync',
+  __syscall_timerfd_gettime: (fd, value) => {
+    var stream = FS.getStream(fd);
+    if (!stream) return -{{{ cDefs.EBADF }}};
+    var t = stream.shared.timerfd;
+    if (!t) return -{{{ cDefs.EINVAL }}};
+    timerfdGetTime(t, value);
+    return 0;
+  },
   __syscall_getcwd__deps: ['$lengthBytesUTF8', '$stringToUTF8'],
   __syscall_getcwd: (buf, size) => {
     if (!size) return -{{{ cDefs.EINVAL }}};

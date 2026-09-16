@@ -24,6 +24,11 @@ See docs/process.md for more on how version tagging works.
   diagnostic warning has been removed. (#27646)
 - `WASM=0` and `WASM=2` (wasm2js) were marked as deprecated. (See #27608)
 - mimalloc was updated to 3.5.1. (#27662)
+- Added support for `timerfd` (`timerfd_create`/`timerfd_settime`/
+  `timerfd_gettime`) on the legacy (non-WASMFS) JS filesystem: one-shot and
+  periodic timers on `CLOCK_MONOTONIC`/`CLOCK_REALTIME`, `TFD_TIMER_ABSTIME`,
+  readable via `read()`, `poll()` and `epoll`. An armed timer holds the runtime
+  alive until it expires or is disarmed/closed.
 - `-sWASM_BINDGEN` supports emcc usage as a post-link step, where
   `EXPORTED_FUNCTIONS` is authoritative. wasm-bindgen processing is only
   performed when the linker inputs carry the wasm-bindgen Emscripten marker

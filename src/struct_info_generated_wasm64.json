@@ -50,6 +50,8 @@
         "AUDIO_S16LSB": 32784,
         "AUDIO_U8": 8,
         "B38400": 15,
+        "CLOCK_BOOTTIME": 7,
+        "CLOCK_MONOTONIC": 1,
         "CLOCK_REALTIME": 0,
         "CREAD": 128,
         "CSIZE": 48,
@@ -464,6 +466,10 @@
         "TCSETS": 21506,
         "TCSETSF": 21508,
         "TCSETSW": 21507,
+        "TFD_CLOEXEC": 524288,
+        "TFD_NONBLOCK": 2048,
+        "TFD_TIMER_ABSTIME": 1,
+        "TFD_TIMER_CANCEL_ON_SET": 2,
         "TIOCGPGRP": 21519,
         "TIOCGWINSZ": 21523,
         "TIOCSPGRP": 21520,
@@ -1046,6 +1052,11 @@
             "__size__": 16,
             "iov_base": 0,
             "iov_len": 8
+        },
+        "itimerspec": {
+            "__size__": 32,
+            "it_interval": 0,
+            "it_value": 16
         },
         "msghdr": {
             "__size__": 56,

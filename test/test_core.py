@@ -5798,6 +5798,23 @@ got: 10
     # layer must not dereference a missing poll handler (poll/epoll on a file).
     self.do_runf('core/test_epoll_noderawfs.c', 'done\n', cflags=['-sNODERAWFS'])
 
+  @needs_epoll
+  @requires_node
+  def test_timerfd(self):
+    self.do_runf('core/test_timerfd.c', 'done\n')
+
+  @parameterized({
+    '': ([],),
+    'disarm': (['-DDISARM'],),
+  })
+  @needs_epoll
+  @requires_node
+  def test_timerfd_keepalive(self, cflags):
+    # An armed timerfd holds the runtime alive (EXIT_RUNTIME) until it expires;
+    # disarming or closing it releases the runtime immediately.
+    self.set_setting('EXIT_RUNTIME')
+    self.do_runf('core/test_timerfd_keepalive.c', 'done\n', cflags=cflags)
+
   @no_wasmfs('st.f_ffree > st.f_files, same issue than in wasmfs.test_fs_nodefs_statvfs. https://github.com/emscripten-core/emscripten/issues/25035')
   def test_statvfs(self):
     self.do_core_test('test_statvfs.c')
@@ -9751,6 +9768,20 @@ NODEFS is no longer included by default; build with -lnodefs.js
     if self.get_setting('JSPI') and engine_is_v8(self.get_current_js_engine()):
       self.skipTest('test requires setTimeout which is not supported under v8')
     self.do_runf('core/test_epoll_blocking_asyncify.c', 'done\n')
+
+  @with_asyncify_and_jspi
+  @needs_epoll
+  def test_timerfd_blocking_asyncify(self):
+    if self.get_setting('JSPI') and engine_is_v8(self.get_current_js_engine()):
+      self.skipTest('test requires setTimeout which is not supported under v8')
+    self.do_runf('core/test_timerfd_blocking_asyncify.c', 'done\n')
+
+  @needs_epoll
+  @requires_pthreads
+  def test_timerfd_blocking_pthread(self):
+    # The same blocking waits, proxied from a pthread and woken by the timer
+    # firing on the main thread.
+    self.do_runf('core/test_timerfd_blocking_asyncify.c', 'done\n', cflags=['-pthread', '-sPROXY_TO_PTHREAD', '-sEXIT_RUNTIME'])
 
   @parameterized({
     '': ([],),

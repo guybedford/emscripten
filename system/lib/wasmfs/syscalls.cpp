@@ -1893,4 +1893,18 @@ int __syscall_epoll_pwait_nonblocking(int epfd,
   return -ENOSYS;
 }
 
+// timerfd is implemented in the legacy (non-WASMFS) JS syscall layer only.
+int __syscall_timerfd_create(int clockid, int flags) { return -ENOSYS; }
+
+int __syscall_timerfd_settime(int fd,
+                              int flags,
+                              const struct itimerspec* value,
+                              struct itimerspec* ovalue) {
+  return -ENOSYS;
+}
+
+int __syscall_timerfd_gettime(int fd, struct itimerspec* value) {
+  return -ENOSYS;
+}
+
 } // extern "C"
