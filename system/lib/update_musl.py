@@ -57,7 +57,6 @@ exclude_files = (
   'soundcard.h',
   'stdint.h',
   'swap.h',
-  'timerfd.h',
   'timex.h',
   'vt.h',
 )

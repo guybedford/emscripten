@@ -168,7 +168,7 @@ var EpollLibrary = {
     if (op == {{{ cDefs.EPOLL_CTL_ADD }}}) {
       if (has) return -{{{ cDefs.EEXIST }}};
       // Only descriptors with a readiness derivation can be epoll-watched
-      // (sockets/pipes/epoll itself). Regular files have no poll handler and so
+      // (sockets/pipes/timerfds/epoll itself). Regular files have no poll handler and so
       // are not epoll-capable, matching Linux (-EPERM).
       if (!target.stream_ops?.poll) return -{{{ cDefs.EPERM }}};
       // Nesting another epoll: reject cycles, and chains deeper than 5 levels of

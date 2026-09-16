@@ -87,3 +87,6 @@
 #define SYS_epoll_create1	__syscall_epoll_create1
 #define SYS_epoll_ctl		__syscall_epoll_ctl
 #define SYS_epoll_pwait		__syscall_epoll_pwait
+#define SYS_timerfd_create	__syscall_timerfd_create
+#define SYS_timerfd_settime	__syscall_timerfd_settime
+#define SYS_timerfd_gettime	__syscall_timerfd_gettime
