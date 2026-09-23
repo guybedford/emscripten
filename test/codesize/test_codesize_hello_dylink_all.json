@@ -468,6 +468,8 @@
     "emscripten_debugger",
     "emscripten_destroy_worker",
     "emscripten_enter_soft_fullscreen",
+    "emscripten_epoll_add_listener",
+    "emscripten_epoll_remove_listener",
     "emscripten_err",
     "emscripten_errn",
     "emscripten_exit_fullscreen",
