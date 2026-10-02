@@ -25,6 +25,11 @@ See docs/process.md for more on how version tagging works.
   the maximum, but never grows it. Previously the maximum was ignored, with a
   warning, and only a memory of exactly `INITIAL_MEMORY` was accepted.
   (#27859)
+- Added support for `timerfd` (`timerfd_create`/`timerfd_settime`/
+  `timerfd_gettime`) on the legacy (non-WASMFS) JS filesystem: one-shot and
+  periodic timers on `CLOCK_MONOTONIC`/`CLOCK_REALTIME`/`CLOCK_BOOTTIME`,
+  `TFD_TIMER_ABSTIME`, readable via `read()`, `poll()` and `epoll`. An armed
+  timer holds the runtime alive until it expires or is disarmed/closed.
 
 6.0.11 - 10/02/26
 -----------------
@@ -36,11 +41,6 @@ See docs/process.md for more on how version tagging works.
 - OpenMP was updated to LLVM commit 9076414489ed. This adds Wasm64 support and
   raises the generic microtask dispatcher limit from 15 to 32 arguments.
   (#27221)
-- Added support for `timerfd` (`timerfd_create`/`timerfd_settime`/
-  `timerfd_gettime`) on the legacy (non-WASMFS) JS filesystem: one-shot and
-  periodic timers on `CLOCK_MONOTONIC`/`CLOCK_REALTIME`/`CLOCK_BOOTTIME`,
-  `TFD_TIMER_ABSTIME`, readable via `read()`, `poll()` and `epoll`. An armed
-  timer holds the runtime alive until it expires or is disarmed/closed.
 
 6.0.10 - 09/21/26
 -----------------
