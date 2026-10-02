@@ -427,6 +427,10 @@ var NodeSockFSLibrary = {
       });
       // Backpressure relieved, so we are writable again.
       conn.on('drain', () => {
+        var count = sock.debugDrainCount = (sock.debugDrainCount || 0) + 1;
+        if (count <= 8 || !(count & (count - 1))) {
+          console.error(`[NRS drain] fd=${sock.stream.fd} count=${count} writableLength=${conn.writableLength} highWaterMark=${conn.writableHighWaterMark} needDrain=${conn.writableNeedDrain}`);
+        }
         sock.writeBlocked = false;
         SOCKFS.emit('open', sock.stream.fd);
       });
@@ -466,6 +470,12 @@ var NodeSockFSLibrary = {
         mask |= {{{ cDefs.POLLOUT }}} | {{{ cDefs.POLLERR }}} | {{{ cDefs.POLLHUP }}};
       } else if (sock.connection && sock.state === {{{ SOCK_STATE_CONNECTED }}} && !sock.writeBlocked) {
         mask |= {{{ cDefs.POLLOUT }}};
+      }
+      var writable = !!(mask & {{{ cDefs.POLLOUT }}});
+      if (sock.debugWritable !== writable) {
+        var conn = sock.connection;
+        console.error(`[NRS poll] fd=${sock.stream.fd} writable=${writable} flags=0x${sock.stream.flags.toString(16)} state=${sock.state} writeBlocked=${!!sock.writeBlocked} writableLength=${conn?.writableLength} highWaterMark=${conn?.writableHighWaterMark} needDrain=${conn?.writableNeedDrain}`);
+        sock.debugWritable = writable;
       }
       // A peer FIN / read-side hangup (recv will see EOF) is POLLRDHUP. POLLHUP
       // means both halves are hung up: either the connection is fully closed, or
@@ -772,12 +782,21 @@ var NodeSockFSLibrary = {
       if (!conn || sock.state === {{{ SOCK_STATE_CLOSED }}}) {
         throw new FS.ErrnoError({{{ cDefs.ENOTCONN }}});
       }
+      var count = sock.debugSendCount = (sock.debugSendCount || 0) + 1;
+      var trace = count <= 8 || !(count & (count - 1));
+      var nonblocking = !!(sock.stream.flags & {{{ cDefs.O_NONBLOCK }}});
+      if (trace) {
+        console.error(`[NRS send pre] fd=${sock.stream.fd} count=${count} length=${length} flags=0x${sock.stream.flags.toString(16)} nonblocking=${nonblocking} state=${sock.state} writeBlocked=${!!sock.writeBlocked} writableLength=${conn.writableLength} highWaterMark=${conn.writableHighWaterMark} needDrain=${conn.writableNeedDrain} connecting=${conn.connecting} destroyed=${conn.destroyed}`);
+      }
       // Bound node's write buffer to its high-water mark: a non-blocking socket
       // only accepts up to the remaining headroom, would-blocking when there is
       // none, and short-writes the rest (which POSIX send() is allowed to do).
-      if (sock.stream.flags & {{{ cDefs.O_NONBLOCK }}}) {
+      if (nonblocking) {
         var headroom = conn.writableHighWaterMark - conn.writableLength;
-        if (headroom <= 0) throw new FS.ErrnoError({{{ cDefs.EAGAIN }}});
+        if (headroom <= 0) {
+          console.error(`[NRS send EAGAIN] fd=${sock.stream.fd} count=${count} length=${length} flags=0x${sock.stream.flags.toString(16)} writableLength=${conn.writableLength} highWaterMark=${conn.writableHighWaterMark} needDrain=${conn.writableNeedDrain} writeBlocked=${!!sock.writeBlocked}`);
+          throw new FS.ErrnoError({{{ cDefs.EAGAIN }}});
+        }
         if (length > headroom) length = headroom;
       }
       offset += buffer.byteOffset;
@@ -787,9 +806,13 @@ var NodeSockFSLibrary = {
       try {
         ok = conn.write(data);
       } catch (e) {
+        console.error(`[NRS send throw] fd=${sock.stream.fd} count=${count} code=${e?.code} message=${e?.message}`);
         throw new FS.ErrnoError(nodeSockHelpers.nodeErrToErrno(e));
       }
       if (!ok) sock.writeBlocked = true; // cleared on 'drain', gates poll's POLLOUT
+      if (trace || !ok) {
+        console.error(`[NRS send post] fd=${sock.stream.fd} count=${count} length=${length} ok=${ok} writeBlocked=${!!sock.writeBlocked} writableLength=${conn.writableLength} highWaterMark=${conn.writableHighWaterMark} needDrain=${conn.writableNeedDrain}`);
+      }
       return length;
     },
     recvmsg(sock, length, flags) {
