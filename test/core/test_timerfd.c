@@ -23,12 +23,16 @@
 #include <time.h>
 #include <unistd.h>
 
-int tfd, rt, periodic, ep;
+int tfd, rt, periodic, long_timer, ep;
 
 void check_periodic(void* arg);
 
 // Runs after the one-shot has expired: readable exactly once, then EAGAIN.
 void check_oneshot(void* arg) {
+  struct pollfd long_pfd = {.fd = long_timer, .events = POLLIN};
+  assert(poll(&long_pfd, 1, 0) == 0);
+  assert(close(long_timer) == 0);
+
   struct pollfd pfd = {.fd = tfd, .events = POLLIN};
   assert(poll(&pfd, 1, 0) == 1);
   assert(pfd.revents == POLLIN);
@@ -107,8 +111,11 @@ int main(void) {
   // Invalid clocks and unknown flags are rejected.
   assert(timerfd_create(999, 0) == -1 && errno == EINVAL);
   assert(timerfd_create(CLOCK_MONOTONIC, 0x1) == -1 && errno == EINVAL);
-  // Both clocks are accepted; TFD_CLOEXEC is a no-op.
+  // All supported clocks are accepted; TFD_CLOEXEC is a no-op.
   rt = timerfd_create(CLOCK_REALTIME, TFD_CLOEXEC);
+  assert(rt >= 0);
+  assert(close(rt) == 0);
+  rt = timerfd_create(CLOCK_BOOTTIME, 0);
   assert(rt >= 0);
   assert(close(rt) == 0);
 
@@ -187,6 +194,12 @@ int main(void) {
   int d = dup(tfd);
   assert(d >= 0);
   assert(close(d) == 0);
+
+  // JS timers overflow above 2^31-1ms; a long timerfd must remain armed.
+  long_timer = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+  assert(long_timer >= 0);
+  struct itimerspec long_its = {.it_value = {.tv_sec = 30 * 24 * 60 * 60}};
+  assert(timerfd_settime(long_timer, 0, &long_its, NULL) == 0);
 
   emscripten_async_call(check_oneshot, NULL, 20);
   return 0;

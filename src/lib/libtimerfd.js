@@ -32,10 +32,16 @@ var TimerFDLibrary = {
   $timerfdArm__internal: true,
   $timerfdArm__deps: ['$timerfdNow', '$callUserCallback'],
   $timerfdArm: (t) => {
+    var delay = Math.max(0, t.next - timerfdNow(t));
     {{{ runtimeKeepalivePush() }}}
     t.timer = setTimeout(() => {
       t.timer = null;
       {{{ runtimeKeepalivePop() }}}
+      // Host timers use signed 32-bit delays, so long deadlines wake in chunks.
+      if (timerfdNow(t) < t.next) {
+        timerfdArm(t);
+        return;
+      }
       // Not user code, but callUserCallback's maybeExit lets a runtime that was
       // only kept alive by this timer exit now that it has fired.
       callUserCallback(() => {
@@ -52,7 +58,7 @@ var TimerFDLibrary = {
         }
         t.node.notifyListeners({{{ cDefs.POLLIN }}});
       });
-    }, Math.max(0, t.next - timerfdNow(t)));
+    }, Math.min(delay, 0x7fffffff));
   },
 
   $timerfdNewInstance__internal: true,
