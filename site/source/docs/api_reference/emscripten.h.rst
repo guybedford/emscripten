@@ -1599,6 +1599,25 @@ Functions
 
   See :ref:`emscripten-api-reference-sockets` for more information.
 
+
+.. c:function:: em_promise_t emscripten_dns_lookup_async(const char *name, const char *service, const struct addrinfo *hints)
+
+  Asynchronous ``getaddrinfo()``. Takes the same inputs and starts the lookup,
+  returning a promise (see ``<emscripten/promise.h>``) that is fulfilled with a
+  newly allocated ``addrinfo`` list (free it with ``freeaddrinfo()``), or
+  rejected with the ``EAI_*`` error code as its reason. The promise is settled
+  on the calling thread, always asynchronously, never before this function
+  returns; the inputs are consumed before it returns. A pending lookup keeps
+  the runtime alive like a timer. The returned handle must be released with
+  ``emscripten_promise_destroy()``.
+
+  Unlike ``getaddrinfo()``, which under ``-sNODERAWSOCKETS`` can only wait for
+  a real DNS lookup from a pthread or with ``ASYNCIFY``/JSPI, this never blocks
+  and so works from the main thread of any build. As with any promise, the
+  calling thread must return to its event loop for the promise to settle; a
+  thread that only ever blocks (in ``poll()``, ``epoll_wait()``, ...) should use
+  ``getaddrinfo()`` instead.
+
   :param void* userData: Arbitrary user data to be passed to the callback.
   :param em_socket_callback callback: Pointer to a callback function. The
                                       callback returns a file descriptor and the

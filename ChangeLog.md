@@ -32,6 +32,9 @@ See docs/process.md for more on how version tagging works.
   main thread only. The callback itself is then able to collect the events via
   a zero-timeout `epoll_wait`, without an `ASYNCIFY`/`JSPI` requirement.
   (#27547)
+- Added `emscripten_dns_lookup_async`, an asynchronous `getaddrinfo` returning
+  an `em_promise_t`, so a real DNS lookup under `-sNODERAWSOCKETS` can be
+  awaited without blocking from any stack.
 
 6.0.11 - 10/02/26
 -----------------

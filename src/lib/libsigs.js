@@ -642,6 +642,7 @@ sigs = {
   emscripten_destroy_audio_context__sig: 'vi',
   emscripten_destroy_web_audio_node__sig: 'vi',
   emscripten_destroy_worker__sig: 'vi',
+  emscripten_dns_lookup_async__sig: 'pppp',
   emscripten_enter_soft_fullscreen__sig: 'ipp',
   emscripten_epoll_listener_add__sig: 'iipp',
   emscripten_epoll_listener_remove__sig: 'iipp',

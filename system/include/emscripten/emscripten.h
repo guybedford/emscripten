@@ -68,6 +68,13 @@ void emscripten_set_socket_connection_callback(void *userData, em_socket_callbac
 void emscripten_set_socket_message_callback(void *userData, em_socket_callback callback);
 void emscripten_set_socket_close_callback(void *userData, em_socket_callback callback);
 
+// Asynchronous getaddrinfo(): same inputs, returning a promise that is
+// fulfilled with a newly allocated addrinfo list (free it with freeaddrinfo())
+// or rejected with the EAI_* error code (as the void* reason). The promise is
+// settled on the calling thread, always asynchronously.
+struct addrinfo;
+em_promise_t emscripten_dns_lookup_async(const char *name, const char *service, const struct addrinfo *hints);
+
 void _emscripten_push_main_loop_blocker(em_arg_callback_func func, void *arg, const char *name);
 void _emscripten_push_uncounted_main_loop_blocker(em_arg_callback_func func, void *arg, const char *name);
 #define emscripten_push_main_loop_blocker(func, arg) \

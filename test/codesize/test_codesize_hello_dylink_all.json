@@ -1,7 +1,7 @@
 {
-  "a.out.js": 272759,
+  "a.out.js": 273216,
   "a.out.nodebug.wasm": 587947,
-  "total": 860706,
+  "total": 861163,
   "sent": [
     "IMG_Init",
     "IMG_Load",
@@ -467,6 +467,7 @@
     "emscripten_date_now",
     "emscripten_debugger",
     "emscripten_destroy_worker",
+    "emscripten_dns_lookup_async",
     "emscripten_enter_soft_fullscreen",
     "emscripten_epoll_listener_add",
     "emscripten_epoll_listener_remove",
