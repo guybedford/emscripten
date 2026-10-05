@@ -9802,6 +9802,18 @@ NODEFS is no longer included by default; build with -lnodefs.js
     # The promise is created on the pthread and the readiness observed on main.
     self.do_runf('core/test_fd_promise.c', 'done\n', cflags=args + ['-sEXIT_RUNTIME'])
 
+  @parameterized({
+    '': ([],),
+    'asyncify': (['-sASYNCIFY', '-DASYNC'],),
+    'jspi': (['-sJSPI', '-DASYNC'],),
+    'pthread': (['-pthread', '-sPROXY_TO_PTHREAD'],),
+  })
+  def test_result_forms(self, args):
+    if '-sJSPI' in args:
+      self.require_jspi()
+    self.do_runf('core/test_result_forms.c', 'done\n',
+                 cflags=args + ['-sEXIT_RUNTIME', '--js-library', test_file('core/test_result_forms.js')])
+
   @with_asyncify_and_jspi
   def test_fd_promise_await(self):
     # emscripten_promise_await on an fd promise is a blocking poll() of one fd.

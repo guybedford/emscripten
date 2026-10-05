@@ -358,6 +358,78 @@ var LibraryFDS = {
     },
 #endif
   },
+
+  // An fd for the outcome of a Promise (the `_fd` result form, see
+  // expandResultForms in src/modules.mjs): readable (POLLIN) once settled, with
+  // POLLERR too if rejected. read() yields the fulfilled value as one
+  // pointer-sized integer, or fails with EIO if rejected. A synchronous
+  // (non-Promise) value is readable on return. The result lives on the open
+  // file description, so dup'd fds share it; nothing is held after the last
+  // close. A pending result holds the runtime alive like a timer.
+  $fdFromPromise__deps: ['$FDS', '$fdResultSettle', '$fdResultRelease'],
+  $fdFromPromise: (result) => {
+    var stream = FDS.createStream({
+      node: new FDS.Node(0),
+      flags: {{{ cDefs.O_RDONLY }}},
+      stream_ops: {
+        poll: (stream) => {
+          var r = stream.shared.result;
+          return r ? {{{ cDefs.POLLIN | cDefs.POLLRDNORM }}} | (r.rejected ? {{{ cDefs.POLLERR }}} : 0) : 0;
+        },
+        read: (stream, buffer, offset, length) => {
+          var r = stream.shared.result;
+          if (!r) throw new FDS.ErrnoError({{{ cDefs.EAGAIN }}});
+          if (r.rejected) throw new FDS.ErrnoError({{{ cDefs.EIO }}});
+          if (length < {{{ POINTER_SIZE }}}) throw new FDS.ErrnoError({{{ cDefs.EINVAL }}});
+#if ASSERTIONS
+          assert(buffer.buffer === HEAP8.buffer, 'result fds are read into wasm memory');
+#endif
+          {{{ makeSetValue('offset', 0, 'r.value', '*') }}};
+          return {{{ POINTER_SIZE }}};
+        },
+        dup: (stream) => stream.shared.refcount++,
+        close: (stream) => {
+          if (--stream.shared.refcount) return;
+          stream.shared.closed = true;
+          if (!stream.shared.result) fdResultRelease();
+        },
+      },
+    });
+    var shared = stream.shared;
+    shared.refcount = 1;
+    if (result instanceof Promise) {
+      {{{ runtimeKeepalivePush() }}}
+      result.then((value) => fdResultSettle(stream, {value}),
+                  () => fdResultSettle(stream, {rejected: true}));
+    } else {
+      shared.result = {value: result};
+    }
+    return stream.fd;
+  },
+  $fdResultRelease__internal: true,
+  $fdResultRelease: () => {
+    {{{ runtimeKeepalivePop() }}}
+  },
+  $fdResultSettle__internal: true,
+  $fdResultSettle__deps: ['$fdResultRelease'],
+  $fdResultSettle: (stream, result) => {
+    var shared = stream.shared;
+    if (shared.closed) return;
+    fdResultRelease();
+    shared.result = result;
+    stream.node.notifyListeners({{{ cDefs.POLLIN | cDefs.POLLRDNORM }}} | (result.rejected ? {{{ cDefs.POLLERR }}} : 0));
+  },
+  // Takes a settled result fd's value (0 if rejected) and closes it: the
+  // 'promise' result form on a pthread, whose promise settles from an fd readiness
+  // promise and learns of rejection from its POLLERR.
+  _emscripten_fd_take_result__deps: ['$FDS'],
+  _emscripten_fd_take_result__proxy: 'sync',
+  _emscripten_fd_take_result: (fd) => {
+    var stream = FDS.getStream(fd);
+    var value = stream.shared.result.value ?? 0;
+    FDS.close(stream);
+    return value;
+  },
 };
 
 // Node subclasses (FS.FSNode, SOCKFS.Node, PIPEFS.Node) are class expressions

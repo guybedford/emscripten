@@ -39,6 +39,10 @@ export const nativeAliases = {};
 const srcDir = fileURLToPath(new URL('.', import.meta.url));
 const systemLibdir = path.join(srcDir, 'lib');
 
+function sigToArgs(sig) {
+  return Array.from({length: sig.length - 1}, (_, i) => `a${i + 1}`).join(', ');
+}
+
 function isBeneath(childPath, parentPath) {
   const relativePath = path.relative(parentPath, childPath);
   return !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
@@ -286,9 +290,96 @@ export const LibraryManager = {
     }
     timer.stop('executeJS')
 
+    this.expandResultForms();
     this.addAliasDependencies();
 
     timer.stop('load')
+  },
+
+  /**
+   * Result forms of an `__async: 'auto'` function. Such a function returns a
+   * pointer-sized value or a Promise of one, as its trailing `canWait`
+   * argument allows (see jsifier). An alias of it named with a form suffix
+   * returns the same result in another shape, and so can always wait:
+   *
+   *   foo_fd: 'foo',       // an fd readable once settled; read() is the value
+   *                        // (see $fdFromPromise)
+   *   foo_promise: 'foo',  // an em_promise_t on the calling thread
+   *
+   * The body runs on the main thread (`__proxy: 'sync'`). On a pthread the
+   * promise form is built on the fd form through emscripten_fd_promise, since
+   * descriptors are process-wide and promises per-thread.
+   */
+  expandResultForms() {
+    const forms = new Map();
+    for (const [key, value] of Object.entries(this.library)) {
+      if (isDecorator(key) || typeof value != 'string') continue;
+      if (!/_(fd|promise)$/.test(key) || this.library[value + '__async'] != 'auto') continue;
+      if (!forms.has(value)) forms.set(value, []);
+      forms.get(value).push(key);
+    }
+
+    for (const [base, aliases] of forms) {
+      const impl = this.library[base];
+      const sig = this.library[base + '__sig'];
+      assert(typeof impl == 'function', `${base}: result forms need a function body`);
+      assert(sig, `${base}: result forms need ${base}__sig`);
+      assert(sig[0] == 'p' || sig[0] == 'i', `${base}: result forms need a pointer-sized result ('p' or 'i' return in __sig)`);
+      assert((this.library[base + '__proxy'] ?? 'sync') == 'sync', `${base}: result forms need a sync-proxied body (it runs on the main thread)`);
+      const args = sigToArgs(sig);
+      // Whether the body names the trailing canWait (see jsifier).
+      const takesCanWait = impl.length == sig.length;
+
+      // Share the body between the forms. Internal unless it came from a user
+      // library, whose forms would otherwise warn about depending on it.
+      const implName = `$${base}Impl`;
+      this.library[implName] = impl;
+      this.library[implName + '__deps'] = this.library[base + '__deps'] ?? [];
+      if (!this.library[base + '__user']) this.library[implName + '__internal'] = true;
+      const callImpl = (canWait) => `${base}Impl(${args}${takesCanWait ? `${args ? ', ' : ''}${canWait}` : ''})`;
+      const define = (name, text, deps, sig, proxy) => {
+        this.library[name] = runInMacroContext(`(${text})`, {filename: `<${name}>`});
+        this.library[name + '__deps'] = deps;
+        this.library[name + '__sig'] = sig;
+        this.library[name + '__proxy'] = proxy;
+      };
+      // The sync form keeps its 'auto' wrapping, which supplies canWait.
+      const syncArgs = takesCanWait ? `${args}${args ? ', ' : ''}canWait` : args;
+      define(base, `(${syncArgs}) => ${callImpl('canWait')}`, [implName], sig, 'sync');
+
+      for (const name of aliases) {
+        const aliasSig = this.library[name + '__sig'];
+        if (name.endsWith('_fd')) {
+          const fdSig = 'i' + sig.slice(1);
+          assert(!aliasSig || aliasSig == fdSig, `${name}__sig must be '${fdSig}'`);
+          // The descriptor table is the JS one; WASMFS has no readiness layer.
+          if (WASMFS) {
+            define(name, `(${args}) => abort('${name} is not supported with WASMFS')`, [], fdSig, 'none');
+          } else {
+            define(name, `(${args}) => fdFromPromise(${callImpl('true')})`, [implName, '$fdFromPromise'], fdSig, 'sync');
+          }
+        } else {
+          const promiseSig = 'p' + sig.slice(1);
+          assert(!aliasSig || aliasSig == promiseSig, `${name}__sig must be '${promiseSig}'`);
+          const fdForm = aliases.find((a) => a.endsWith('_fd'));
+          assert(!PTHREADS || fdForm, `${name}: a promise form needs an fd form of ${base} under PTHREADS`);
+          define(name, `(${args}) => {
+  ${PTHREADS ? `if (ENVIRONMENT_IS_PTHREAD) {
+    var fd = _${fdForm}(${args});
+    var id = _emscripten_fd_promise(fd, ${cDefine('POLLIN')});
+    return addPromise(getPromise(id).then((revents) => {
+      var value = __emscripten_fd_take_result(fd);
+      if (revents & ${cDefine('POLLERR')}) throw 0;
+      return value;
+    }).finally(() => _emscripten_promise_destroy(id)));
+  }` : ''}
+  return addPromise(Promise.resolve(${callImpl('true')}));
+}`, [implName, '$addPromise', '$getPromise',
+            ...(PTHREADS ? [fdForm, 'emscripten_fd_promise', '_emscripten_fd_take_result', 'emscripten_promise_destroy'] : [])],
+            promiseSig, 'none');
+        }
+      }
+    }
   },
 
   isAlias(entry) {

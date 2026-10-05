@@ -667,6 +667,41 @@ Using ``-sWASM_BIGINT`` when linking is an alternative method of handling
 64-bit types in libraries.  ```Number()``` may be needed on the JavaScript
 side to convert it to a usable value.  See `settings reference <https://emscripten.org/docs/tools_reference/settings_reference.html?highlight=environment#wasm-bigint>`_.
 
+Result forms of asynchronous functions
+--------------------------------------
+
+A library function marked ``__async: 'auto'`` returns either a pointer-sized
+value or a ``Promise`` of one. It receives a trailing ``canWait`` argument
+saying whether a returned ``Promise`` could be waited for on this call:
+always under ``ASYNCIFY``/JSPI, when called from a pthread (the body runs on
+the main thread, and the caller waits for it), and never otherwise, where
+the body must complete synchronously instead (returning an error, say).
+Aliases of it with an ``_fd`` or ``_promise`` suffix return the same result in
+another shape, for callers that cannot block, and so can always wait:
+
+.. code-block:: javascript
+
+  lookup__sig: 'pp',
+  lookup__async: 'auto',
+  lookup: (name, canWait) => {
+    if (!canWait) return -EAGAIN;
+    return fetchSomething(name);  // returns a Promise
+  },
+  lookup_fd: 'lookup',
+  lookup_promise: 'lookup',
+
+.. code-block:: c
+
+  intptr_t lookup(const char* name);
+  int lookup_fd(const char* name);
+  em_promise_t lookup_promise(const char* name);
+
+``lookup_fd()`` returns a file descriptor that becomes readable (``poll()``,
+``select()``, ``epoll``) once the result is available, with ``POLLERR`` if the
+promise was rejected; ``read()`` of ``sizeof(intptr_t)`` bytes yields the
+value (``EIO`` if rejected). The fd must be ``close()``\d.
+``lookup_promise()`` returns an ``em_promise_t`` on the calling thread (see
+``<emscripten/promise.h>``) fulfilled with the value or rejected with ``NULL``.
 
 .. _interacting-with-code-access-memory:
 

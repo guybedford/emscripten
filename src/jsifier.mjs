@@ -518,6 +518,27 @@ function(${args}) {
 
     const proxyingMode = LibraryManager.library[symbol + '__proxy'];
 
+    if (LibraryManager.library[symbol + '__async'] == 'auto' && sig) {
+      // An 'auto' body returns a value or a Promise, as it can. A body that
+      // names one parameter more than __sig receives there `canWait`: whether
+      // a returned Promise could be waited for on this call (always under
+      // ASYNCIFY/JSPI; on behalf of a sync-proxied pthread caller, which
+      // awaits it; never otherwise). When it is false the body must complete
+      // synchronously instead.
+      const canWait = ASYNCIFY ? 'true' :
+        PTHREADS && proxyingMode == 'sync' ? '!!PThread.currentProxiedOperationCallerThread' : 'false';
+      snippet = modifyJSFunction(snippet, (args, body, async_, oneliner) => {
+        const params = args.split(',').map((a) => a.trim()).filter((a) => a);
+        if (params.length != sig.length) return snippet;
+        if (!oneliner) body = `{\n${body}\n}`;
+        const outer = params.slice(0, -1).join(', ');
+        return `\
+function(${outer}) {
+  return (${async_}(${args}) => ${body})(${outer}${outer ? ', ' : ''}${canWait});
+}\n`;
+      });
+    }
+
     if (ASYNCIFY && isAsyncFunction == 'auto') {
       snippet = handleAsyncFunction(snippet, sig, proxyingMode == 'sync');
     }
