@@ -95,11 +95,16 @@ var LibraryFDS = {
 #if USE_CLOSURE_COMPILER
       // Closure (@struct) requires these declared ahead of time. The readiness
       // wait-queue is populated lazily, and only on nodes that derive real
-      // readiness (sockets, pipes, an epoll's own node).
+      // readiness (sockets, pipes, an epoll's own node); sock and pipe are the
+      // payloads SOCKFS and PIPEFS hang on their nodes.
       /** @type {Set<?>|null} */
       listeners = null;
       /** @type {number} */
       exclTurn = 0;
+      /** @type {?} */
+      sock;
+      /** @type {?} */
+      pipe;
 #endif
       constructor(mode) {
         this.id = FDS.nextInode++;

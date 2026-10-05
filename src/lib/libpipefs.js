@@ -47,7 +47,6 @@ addToLibrary({
         seekable: false,
         stream_ops: PIPEFS.stream_ops
       });
-      rNode.stream = readableStream;
 
       var writableStream = FDS.createStream({
         path: PIPEFS.nextname(),
@@ -56,7 +55,6 @@ addToLibrary({
         seekable: false,
         stream_ops: PIPEFS.stream_ops
       });
-      wNode.stream = writableStream;
 
       return {
         readable_fd: readableStream.fd,

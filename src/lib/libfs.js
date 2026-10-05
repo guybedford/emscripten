@@ -4,6 +4,10 @@
  * SPDX-License-Identifier: MIT
  */
 
+// FS.FSNode extends FDS.Node (libfd.js): bind FDS at library load time so the
+// class expression evaluates; in the output, FDS is the emitted library object.
+var FDS = LibraryManager.library.$FDS;
+
 var LibraryFS = {
 #if FORCE_FILESYSTEM
   // Include FS even when it is not referenced by compiled code.
@@ -44,67 +48,29 @@ var LibraryFS = {
     return `
 // The descriptor table, open file descriptions, readiness wait-queue and the
 // mode predicates live in FDS; FS keeps its historical names for them.
-Object.assign(FS, {
-  ErrnoError: FDS.ErrnoError,
-  FSStream: FDS.Stream,
-  streams: FDS.streams,
-  MAX_OPEN_FDS: FDS.MAX_OPEN_FDS,
-  nextfd: FDS.nextfd,
-  getStreamChecked: FDS.getStreamChecked,
-  getStream: FDS.getStream,
-  createStream: FDS.createStream,
-  closeStream: FDS.closeStream,
-  dupStream: FDS.dupStream,
-  isClosed: FDS.isClosed,
-  isFile: FDS.isFile,
-  isDir: FDS.isDir,
-  isLink: FDS.isLink,
-  isChrdev: FDS.isChrdev,
-  isBlkdev: FDS.isBlkdev,
-  isFIFO: FDS.isFIFO,
-  isSocket: FDS.isSocket,
+FS.ErrnoError = FDS.ErrnoError;
+FS.FSStream = FDS.Stream;
+FS.streams = FDS.streams;
+FS.MAX_OPEN_FDS = FDS.MAX_OPEN_FDS;
+FS.nextfd = FDS.nextfd;
+FS.getStreamChecked = FDS.getStreamChecked;
+FS.getStream = FDS.getStream;
+FS.createStream = FDS.createStream;
+FS.closeStream = FDS.closeStream;
+FS.dupStream = FDS.dupStream;
+FS.isClosed = FDS.isClosed;
+FS.isFile = FDS.isFile;
+FS.isDir = FDS.isDir;
+FS.isLink = FDS.isLink;
+FS.isChrdev = FDS.isChrdev;
+FS.isBlkdev = FDS.isBlkdev;
+FS.isFIFO = FDS.isFIFO;
+FS.isSocket = FDS.isSocket;
 #if !FS_DEBUG
-  llseek: FDS.llseek,
-  read: FDS.read,
-  write: FDS.write,
+FS.llseek = FDS.llseek;
+FS.read = FDS.read;
+FS.write = FDS.write;
 #endif
-});
-FS.FSNode = class extends FDS.Node {
-  node_ops = {};
-  stream_ops = {};
-  readMode = {{{ cDefs.S_IRUGO }}} | {{{ cDefs.S_IXUGO }}};
-  writeMode = {{{ cDefs.S_IWUGO }}};
-  mounted = null;
-  constructor(parent, name, mode, rdev) {
-    super(mode);
-    if (!parent) {
-      parent = this;  // root node sets parent to itself
-    }
-    this.parent = parent;
-    this.mount = parent.mount;
-    this.name = name;
-    this.rdev = rdev;
-    this.atime = this.mtime = this.ctime = Date.now();
-  }
-  get read() {
-    return (this.mode & this.readMode) === this.readMode;
-  }
-  set read(val) {
-    val ? this.mode |= this.readMode : this.mode &= ~this.readMode;
-  }
-  get write() {
-    return (this.mode & this.writeMode) === this.writeMode;
-  }
-  set write(val) {
-    val ? this.mode |= this.writeMode : this.mode &= ~this.writeMode;
-  }
-  get isFolder() {
-    return FS.isDir(this.mode);
-  }
-  get isDevice() {
-    return FS.isChrdev(this.mode);
-  }
-};
 #if !MINIMAL_RUNTIME
 FS.createPreloadedFile = FS_createPreloadedFile;
 FS.preloadFile = FS_preloadFile;
@@ -131,6 +97,43 @@ FS.staticInit();`;
 #if expectToReceiveOnModule('logReadFiles')
     readFiles: {},
 #endif
+    FSNode: class extends FDS.Node {
+      node_ops = {};
+      stream_ops = {};
+      readMode = {{{ cDefs.S_IRUGO }}} | {{{ cDefs.S_IXUGO }}};
+      writeMode = {{{ cDefs.S_IWUGO }}};
+      mounted = null;
+      constructor(parent, name, mode, rdev) {
+        super(mode);
+        if (!parent) {
+          parent = this;  // root node sets parent to itself
+        }
+        this.parent = parent;
+        this.mount = parent.mount;
+        this.name = name;
+        this.rdev = rdev;
+        this.atime = this.mtime = this.ctime = Date.now();
+      }
+      get read() {
+        return (this.mode & this.readMode) === this.readMode;
+      }
+      set read(val) {
+        val ? this.mode |= this.readMode : this.mode &= ~this.readMode;
+      }
+      get write() {
+        return (this.mode & this.writeMode) === this.writeMode;
+      }
+      set write(val) {
+        val ? this.mode |= this.writeMode : this.mode &= ~this.writeMode;
+      }
+      get isFolder() {
+        return FS.isDir(this.mode);
+      }
+      get isDevice() {
+        return FS.isChrdev(this.mode);
+      }
+    },
+
     //
     // paths
     //
