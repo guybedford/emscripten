@@ -5,14 +5,14 @@
  */
 
 addToLibrary({
-  $PIPEFS__postset: () => addAtInit('PIPEFS.root = FS.mount(PIPEFS, {}, null);'),
-  $PIPEFS__deps: ['$FS'],
+  $PIPEFS__deps: ['$FDS'],
   $PIPEFS: {
     BUCKET_BUFFER_SIZE: 1024 * 8, // 8KiB Buffer
-    mount(mount) {
-      // Do not pollute the real root directory or its child nodes with pipes
-      // Looks like it is OK to create another pseudo-root node not linked to the FS.root hierarchy this way
-      return FS.createNode(null, '/', {{{ cDefs.S_IFDIR }}} | 0o777, 0);
+    Node: class extends FDS.Node {
+      constructor(pipe) {
+        super({{{ cDefs.S_IFIFO }}});
+        this.pipe = pipe;
+      }
     },
     createPipe() {
       var pipe = {
@@ -35,20 +35,13 @@ addToLibrary({
         roffset: 0
       });
 
-      var rName = PIPEFS.nextname();
-      var wName = PIPEFS.nextname();
-      var rNode = FS.createNode(PIPEFS.root, rName, {{{ cDefs.S_IFIFO }}}, 0);
-      var wNode = FS.createNode(PIPEFS.root, wName, {{{ cDefs.S_IFIFO }}}, 0);
-
-      rNode.pipe = pipe;
-      wNode.pipe = pipe;
       // The read end's node carries the reader poll wait-queue (writes wake it);
       // the write end's node carries the writer wait-queue (read-end close wakes it).
-      pipe.readNode = rNode;
-      pipe.writeNode = wNode;
+      var rNode = pipe.readNode = new PIPEFS.Node(pipe);
+      var wNode = pipe.writeNode = new PIPEFS.Node(pipe);
 
-      var readableStream = FS.createStream({
-        path: rName,
+      var readableStream = FDS.createStream({
+        path: PIPEFS.nextname(),
         node: rNode,
         flags: {{{ cDefs.O_RDONLY }}},
         seekable: false,
@@ -56,8 +49,8 @@ addToLibrary({
       });
       rNode.stream = readableStream;
 
-      var writableStream = FS.createStream({
-        path: wName,
+      var writableStream = FDS.createStream({
+        path: PIPEFS.nextname(),
         node: wNode,
         flags: {{{ cDefs.O_WRONLY }}},
         seekable: false,
@@ -161,7 +154,7 @@ addToLibrary({
         }
         if (currentLength == 0) {
           // Behave as if the read end is always non-blocking
-          throw new FS.ErrnoError({{{ cDefs.EAGAIN }}});
+          throw new FDS.ErrnoError({{{ cDefs.EAGAIN }}});
         }
         var toRead = Math.min(currentLength, length);
 
