@@ -945,7 +945,6 @@ sigs = {
   fd_write__sig: 'iippp',
   filledEllipseColor__sig: 'ipiiiii',
   filledEllipseRGBA__sig: 'ipiiiiiiii',
-  getaddrinfo__sig: 'ipppp',
   getnameinfo__sig: 'ipipipii',
   getprotobyname__sig: 'pp',
   getprotobynumber__sig: 'pi',
