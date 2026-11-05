@@ -13846,6 +13846,17 @@ void foo() {}
     output = self.do_runf('other/test_epoll_callback_abort.c', 'Aborted(native code called abort())', cflags=['-sFORCE_FILESYSTEM', '-sEXIT_RUNTIME'], assert_returncode=NON_ZERO)
     self.assertNotContained('unhandled rejection', output)
 
+  @parameterized({
+    'timer': ([],),
+    'epoll': (['-DEPOLL'],),
+  })
+  def test_callback_exception_abort(self, args):
+    # A JS exception escaping an event loop callback aborts the program, so no
+    # later callback runs.
+    output = self.do_runf('other/test_callback_exception_abort.c', 'done\n', cflags=['-sFORCE_FILESYSTEM'] + args)
+    self.assertContained('Aborted(Error: boom', output)
+    self.assertNotContained('callback after abort', output)
+
   @requires_pthreads
   def test_epoll_callback_thread(self):
     # Listeners are main-thread only: registration from another thread is

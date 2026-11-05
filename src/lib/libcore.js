@@ -2083,9 +2083,13 @@ addToLibrary({
     try {
       return func(...args);
     } catch (e) {
+      // No caller receives an exception from an event-loop callback, and one
+      // that unwound wasm frames leaves the program state undefined: like an
+      // uncaught exception in a native program, it is fatal.
+      if (!(e instanceof ExitStatus || e == 'unwind')) abort(e?.stack ?? e);
       handleException(e);
     } finally {
-      maybeExit();
+      if (!ABORT) maybeExit();
     }
   },
 
