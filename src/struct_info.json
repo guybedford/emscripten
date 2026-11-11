@@ -220,7 +220,8 @@
             "EAI_NONAME",
             "EAI_SOCKTYPE",
             "EAI_BADFLAGS",
-            "EAI_AGAIN"
+            "EAI_AGAIN",
+            "EAI_SYSTEM"
         ],
         "structs": {
             "addrinfo": [
